@@ -195,8 +195,8 @@ export function InitialLoginPage() {
     try {
       const success = await setupDualPasswords(
         passwordSetupForm.email,
-        passwordSetupForm.adminCredentials,
-        passwordSetupForm.operatorCredentials
+        { ...passwordSetupForm.adminCredentials, role: 'admin' as const },
+        { ...passwordSetupForm.operatorCredentials, role: 'operator' as const }
       );
       
       if (success) {
