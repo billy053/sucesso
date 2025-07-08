@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Camera, X, Flashlight, FlashlightOff, RotateCcw } from 'lucide-react';
+import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 
 interface BarcodeScannerProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ export function BarcodeScanner({ isOpen, onClose, onScan }: BarcodeScannerProps)
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanIntervalRef = useRef<number | null>(null);
+  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
   
   const [isScanning, setIsScanning] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
@@ -178,52 +180,42 @@ export function BarcodeScanner({ isOpen, onClose, onScan }: BarcodeScannerProps)
 
     scanIntervalRef.current = window.setInterval(() => {
       scanBarcode();
-    }, 100); // Scan a cada 100ms para melhor responsividade
+    }, 200); // Scan a cada 200ms para melhor performance
   };
 
   // Função de scanning otimizada
-  const scanBarcode = () => {
-    if (!videoRef.current || !canvasRef.current || !isScanning) return;
+  const scanBarcode = async () => {
+    if (!videoRef.current || !isScanning) return;
 
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
-
-    if (!context || video.readyState !== video.HAVE_ENOUGH_DATA) return;
-
-    // Configurar canvas com dimensões do vídeo
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    // Desenhar frame atual
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Usar ZXing para detecção real de código de barras
+    if (!codeReaderRef.current) {
+      codeReaderRef.current = new BrowserMultiFormatReader();
+    }
 
     try {
-      // Obter dados da imagem
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      const result = await codeReaderRef.current.decodeOnceFromVideoElement(videoRef.current);
       
-      // Simular detecção de código de barras
-      // Em produção, você usaria uma biblioteca como ZXing ou QuaggaJS
-      const detectedBarcode = simulateBarcodeDetection(imageData);
-      
-      if (detectedBarcode) {
+      if (result) {
         const now = Date.now();
         // Evitar múltiplas leituras do mesmo código
         if (now - lastScanTime > 2000) {
           setLastScanTime(now);
-          console.log('📱 Código detectado:', detectedBarcode);
+          console.log('📱 Código detectado:', result.getText());
           
           // Vibração de feedback (se disponível)
           if (navigator.vibrate) {
             navigator.vibrate(200);
           }
           
-          onScan(detectedBarcode);
+          onScan(result.getText());
           onClose();
         }
       }
-    } catch (error) {
-      console.error('Erro no scanning:', error);
+    } catch (error: any) {
+      // NotFoundException é normal quando não há código na imagem
+      if (!(error instanceof NotFoundException)) {
+        console.error('Erro no scanning:', error);
+      }
     }
   };
 
@@ -289,6 +281,9 @@ export function BarcodeScanner({ isOpen, onClose, onScan }: BarcodeScannerProps)
   useEffect(() => {
     return () => {
       stopCamera();
+      if (codeReaderRef.current) {
+        codeReaderRef.current.reset();
+      }
     };
   }, []);
 
