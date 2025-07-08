@@ -13,7 +13,6 @@ import {
   Save,
   Coffee,
   Building2,
-  Eye,
   EyeOff,
   Key
 } from 'lucide-react';
