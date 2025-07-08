@@ -112,6 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else if (savedUser) {
       setUser(JSON.parse(savedUser));
     } else {
+      // Usuário não logado
     }
     setIsLoading(false);
   }, []);

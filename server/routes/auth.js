@@ -191,10 +191,8 @@ router.post('/check-status', async (req, res) => {
         [email.toLowerCase()]
       );
 
-      const finalStatus = hasCredentials ? 'ready' : 'needs_setup';
-      
       return res.json({ 
-        status: finalStatus
+        status: hasCredentials ? 'ready' : 'needs_setup'
       });
     }
 

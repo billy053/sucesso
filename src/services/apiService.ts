@@ -10,7 +10,9 @@ class ApiService {
   constructor() {
     this.token = localStorage.getItem('auth-token');
     
-    console.log('🔗 API Service inicializado:', API_BASE_URL);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔗 API Service inicializado:', API_BASE_URL);
+    }
   }
 
   setToken(token: string) {
