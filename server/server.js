@@ -84,7 +84,10 @@ app.use(cors({
 
 // Middleware de logging
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  // Log apenas para health checks em desenvolvimento
+  if (process.env.NODE_ENV === 'development' && req.path !== '/health') {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  }
   next();
 });
 
@@ -124,7 +127,6 @@ try {
 // Rota catch-all para SPA (deve vir por último)
 app.get('*', (req, res) => {
   const indexPath = path.join(__dirname, '../dist/index.html');
-  console.log('📄 Servindo index.html de:', indexPath);
   res.sendFile(indexPath, (err) => {
     if (err) {
       console.error('❌ Erro ao servir index.html:', err);
@@ -135,7 +137,9 @@ app.get('*', (req, res) => {
 
 // Middleware de tratamento de erros
 app.use((err, req, res, next) => {
-  console.error('❌ Erro no servidor:', err);
+  if (process.env.NODE_ENV === 'development') {
+    console.error('❌ Erro no servidor:', err);
+  }
   
   if (err.type === 'entity.parse.failed') {
     return res.status(400).json({ error: 'JSON inválido' });
@@ -172,9 +176,11 @@ app.listen(PORT, '0.0.0.0', () => {
       const userCount = await database.default.get('SELECT COUNT(*) as count FROM users');
       const productCount = await database.default.get('SELECT COUNT(*) as count FROM products');
       
-      console.log('📊 Estatísticas do banco:');
-      console.log(`   👥 Usuários: ${userCount.count}`);
-      console.log(`   📦 Produtos: ${productCount.count}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📊 Estatísticas do banco:');
+        console.log(`   👥 Usuários: ${userCount.count}`);
+        console.log(`   📦 Produtos: ${productCount.count}`);
+      }
       
       await database.default.close();
     } catch (error) {

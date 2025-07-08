@@ -11,15 +11,12 @@ router.use(authenticateToken);
 // Listar produtos
 router.get('/', requireOperator, async (req, res) => {
   try {
-    console.log('📦 Listando produtos para business:', req.user.businessId);
-    
     const products = await database.all(`
       SELECT * FROM products 
       WHERE business_id = ? 
       ORDER BY name
     `, [req.user.businessId]);
 
-    console.log('📦 Produtos encontrados:', products.length);
     res.json(products);
   } catch (error) {
     console.error('Erro ao listar produtos:', error);

@@ -9,8 +9,6 @@ class ApiService {
 
   constructor() {
     this.token = localStorage.getItem('auth-token');
-    console.log('🔗 API Base URL:', API_BASE_URL);
-    console.log('🌍 Environment:', import.meta.env.PROD ? 'Production' : 'Development');
     
     // Testar conexão inicial
     this.testConnection();
@@ -20,12 +18,12 @@ class ApiService {
     try {
       const response = await fetch(`${API_BASE_URL}/health`);
       if (response.ok) {
-        console.log('✅ Conexão com servidor estabelecida');
+        // Conexão OK
       } else {
-        console.warn('⚠️ Servidor respondeu com erro:', response.status);
+        // Servidor com erro
       }
     } catch (error) {
-      console.warn('⚠️ Não foi possível conectar ao servidor:', error);
+      // Sem conexão
     }
   }
 
@@ -52,7 +50,6 @@ class ApiService {
     }
 
     try {
-      console.log(`🌐 ${options.method || 'GET'} ${url}`);
       const response = await fetch(url, {
         ...options,
         headers,
@@ -60,17 +57,14 @@ class ApiService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-        console.error(`❌ Erro ${response.status}:`, errorData);
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
       return await response.json();
     } catch (error) {
-      console.error(`Erro na requisição ${endpoint}:`, error);
       
       // Se for erro de rede, tentar fallback local
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.warn('🔄 Erro de conexão, usando dados locais como fallback');
         throw new Error('NETWORK_ERROR');
       }
       
@@ -136,7 +130,6 @@ class ApiService {
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        console.warn('🔄 Servidor indisponível, usando dados locais');
         throw error;
       }
       throw error;
@@ -179,7 +172,6 @@ class ApiService {
       return await this.request('/products');
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        console.warn('🔄 Carregando produtos do localStorage como fallback');
         const products = localStorage.getItem('business-default-products');
         return products ? JSON.parse(products) : [];
       }
@@ -215,7 +207,6 @@ class ApiService {
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        console.warn('🔄 Criando produto localmente como fallback');
         return null; // Será tratado no hook
       }
       throw error;
@@ -230,7 +221,6 @@ class ApiService {
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        console.warn('🔄 Atualizando produto localmente como fallback');
         return null;
       }
       throw error;
@@ -244,7 +234,6 @@ class ApiService {
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        console.warn('🔄 Deletando produto localmente como fallback');
         return { success: true };
       }
       throw error;
@@ -259,7 +248,6 @@ class ApiService {
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        console.warn('🔄 Atualizando estoque localmente como fallback');
         return { success: true };
       }
       throw error;
@@ -279,7 +267,6 @@ class ApiService {
       return await this.request(`/sales${query ? `?${query}` : ''}`);
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        console.warn('🔄 Carregando vendas do localStorage como fallback');
         const sales = localStorage.getItem('business-default-sales');
         return sales ? JSON.parse(sales) : [];
       }
@@ -295,7 +282,6 @@ class ApiService {
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        console.warn('🔄 Criando venda localmente como fallback');
         return null;
       }
       throw error;
@@ -307,7 +293,6 @@ class ApiService {
       return await this.request('/sales/stats');
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        console.warn('🔄 Calculando estatísticas localmente como fallback');
         // Calcular estatísticas básicas dos dados locais
         const sales = localStorage.getItem('business-default-sales');
         if (sales) {
@@ -404,7 +389,6 @@ class ApiService {
       return await this.request('/business/settings');
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        console.warn('🔄 Carregando configurações do localStorage como fallback');
         return null;
       }
       throw error;
@@ -419,7 +403,6 @@ class ApiService {
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        console.warn('🔄 Salvando configurações localmente como fallback');
         return { success: true };
       }
       throw error;
@@ -451,7 +434,6 @@ class ApiService {
     try {
       return await this.request('/health');
     } catch (error) {
-      console.warn('🔄 Health check falhou, servidor pode estar indisponível');
       return { status: 'offline', timestamp: new Date().toISOString() };
     }
   }

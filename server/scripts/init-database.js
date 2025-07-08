@@ -289,9 +289,11 @@ const initDatabase = async () => {
       `, ['cred-op-1', demoUserId, 'operador', await bcrypt.hash('operador123', 12), 'operator']);
       
       console.log('✅ Usuário demo criado');
-      console.log('📧 Email: admin@vitana.com');
-      console.log('👤 Admin: admin / admin123');
-      console.log('👨‍💼 Operador: operador / operador123');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📧 Email: admin@vitana.com');
+        console.log('👤 Admin: admin / admin123');
+        console.log('👨‍💼 Operador: operador / operador123');
+      }
     }
 
     console.log('🎉 Banco de dados inicializado com sucesso!');

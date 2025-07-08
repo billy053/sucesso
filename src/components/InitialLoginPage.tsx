@@ -266,7 +266,6 @@ export function InitialLoginPage() {
     setIsTestingConnection(true);
 
     try {
-      console.log('🔍 Verificando status do usuário:', email);
       await requestAccess(accessRequest);
       alert('✅ Solicitação enviada com sucesso!\n\nSua solicitação foi enviada para análise do administrador. Você receberá um e-mail quando for aprovada.');
       setStep('initial');
@@ -275,7 +274,6 @@ export function InitialLoginPage() {
       setError('Erro ao enviar solicitação. Tente novamente.');
       // Tentar verificação local como fallback
       const localStatus = checkUserPasswordStatus(email);
-      console.log('🔄 Status local:', localStatus);
       setUserStatus(localStatus);
       
       if (localStatus === 'ready') {
@@ -301,7 +299,6 @@ export function InitialLoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center relative overflow-hidden">
       {/* Efeitos de fundo */}
-      console.log('📋 Status retornado:', status);
       <div className="absolute inset-0 bg-gradient-to-br from-yellow-900/20 via-transparent to-yellow-900/20"></div>
       
       {/* Partículas animadas */}

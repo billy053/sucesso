@@ -115,8 +115,6 @@ router.post('/setup-passwords', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, username, password } = req.body;
-    
-    console.log('🔐 Tentativa de login:', { email, username, role: 'não informado ainda' });
 
     // Buscar usuário e credenciais
     const userWithCredentials = await database.get(`
@@ -127,20 +125,14 @@ router.post('/login', async (req, res) => {
     `, [email.toLowerCase(), username]);
 
     if (!userWithCredentials) {
-      console.log('❌ Credenciais não encontradas para:', email, username);
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
-    
-    console.log('✅ Usuário encontrado:', userWithCredentials.full_name, 'Role:', userWithCredentials.role);
 
     // Verificar senha
     const passwordValid = await bcrypt.compare(password, userWithCredentials.password_hash);
     if (!passwordValid) {
-      console.log('❌ Senha inválida para:', email);
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
-    
-    console.log('✅ Login bem-sucedido para:', email);
 
     // Atualizar último login
     await database.run(
@@ -182,8 +174,6 @@ router.post('/login', async (req, res) => {
 router.post('/check-status', async (req, res) => {
   try {
     const { email } = req.body;
-    
-    console.log('🔍 Verificando status do usuário:', email);
 
     const user = await database.get(
       'SELECT status FROM users WHERE email = ?',
@@ -191,11 +181,8 @@ router.post('/check-status', async (req, res) => {
     );
 
     if (!user) {
-      console.log('❌ Usuário não encontrado:', email);
       return res.json({ status: 'not_found' });
     }
-    
-    console.log('✅ Usuário encontrado:', email, 'Status:', user.status);
 
     if (user.status === 'approved') {
       // Verificar se já tem credenciais
@@ -205,14 +192,12 @@ router.post('/check-status', async (req, res) => {
       );
 
       const finalStatus = hasCredentials ? 'ready' : 'needs_setup';
-      console.log('📋 Status final:', finalStatus, 'Tem credenciais:', !!hasCredentials);
       
       return res.json({ 
         status: finalStatus
       });
     }
 
-    console.log('📋 Status retornado:', user.status);
     res.json({ status: user.status });
   } catch (error) {
     console.error('Erro ao verificar status:', error);

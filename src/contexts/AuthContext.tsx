@@ -103,19 +103,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [pendingPasswordUser, setPendingPasswordUser] = useState<AuthorizedUser | null>(null);
 
   useEffect(() => {
-    console.log('🔐 Inicializando AuthContext...');
     // Verificar se há usuário logado no localStorage
     const savedUser = localStorage.getItem('current-user');
     const savedSuperAdmin = localStorage.getItem('super-admin-session');
     
     if (savedSuperAdmin) {
-      console.log('👑 Super admin logado');
       setIsSuperAdmin(true);
     } else if (savedUser) {
-      console.log('👤 Usuário logado:', JSON.parse(savedUser).name);
       setUser(JSON.parse(savedUser));
     } else {
-      console.log('🚪 Nenhum usuário logado');
     }
     setIsLoading(false);
   }, []);
@@ -151,7 +147,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await apiService.requestAccess(requestData);
     } catch (error) {
-      console.error('Erro ao solicitar acesso:', error);
       // Fallback para localStorage
       const requests = getAccessRequests();
       const newRequest: AccessRequest = {
@@ -210,7 +205,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await apiService.approveAccess(requestId);
     } catch (error) {
-      console.error('Erro ao aprovar acesso:', error);
       // Fallback para localStorage
       const requests = getAccessRequests();
       const request = requests.find(r => r.id === requestId);
@@ -298,7 +292,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await apiService.rejectAccess(requestId, reason);
     } catch (error) {
-      console.error('Erro ao rejeitar acesso:', error);
       // Fallback para localStorage
       const requests = getAccessRequests();
       const updatedRequests = requests.map(r => 
@@ -417,7 +410,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiService.checkUserStatus(email);
       return response.status;
     } catch (error) {
-      console.error('Erro ao verificar status no servidor:', error);
       // Fallback para verificação local
       return checkUserPasswordStatus(email);
     }
@@ -457,7 +449,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
     } catch (error) {
-      console.error('Erro ao configurar senhas:', error);
       // Fallback para localStorage (código anterior)
       const authorizedUsers = getAuthorizedUsers();
       const userIndex = authorizedUsers.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
@@ -518,11 +509,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     
     try {
-      console.log('🔐 Tentando login no servidor:', { email, username });
       const response = await apiService.login(email, username, password);
       
       if (response.success && response.user) {
-        console.log('✅ Login no servidor bem-sucedido:', response.user.name);
         const userSession: User = {
           id: response.user.id,
           username: response.user.username,
@@ -535,14 +524,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         setUser(userSession);
         localStorage.setItem('current-user', JSON.stringify(userSession));
-        console.log('💾 Sessão salva localmente');
         setIsLoading(false);
         return true;
       }
     } catch (error) {
-      console.error('❌ Erro no login do servidor:', error);
       // Fallback para localStorage
-      console.log('🔄 Tentando fallback local...');
       const allCredentials = JSON.parse(localStorage.getItem('user-credentials') || '[]');
       const userCredentials = allCredentials.find((cred: any) => 
         cred.email === email && 
@@ -551,12 +537,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
 
       if (userCredentials) {
-        console.log('✅ Credenciais encontradas no localStorage');
         const authorizedUsers = getAuthorizedUsers();
         const authorizedUser = authorizedUsers.find(u => u.email === email);
         
         if (!authorizedUser) {
-          console.log('❌ Usuário não autorizado');
           setIsLoading(false);
           return false;
         }
@@ -573,15 +557,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         setUser(userSession);
         localStorage.setItem('current-user', JSON.stringify(userSession));
-        console.log('✅ Login local bem-sucedido');
         setIsLoading(false);
         return true;
       } else {
-        console.log('❌ Credenciais não encontradas');
       }
     }
     
-    console.log('❌ Login falhou');
     setIsLoading(false);
     return false;
   };

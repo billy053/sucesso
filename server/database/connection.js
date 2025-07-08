@@ -47,7 +47,6 @@ class Database {
           reject(err);
         } else {
           console.log('✅ Conectado ao banco SQLite:', dbPath);
-          console.log('📊 Verificando integridade do banco...');
           
           // Criar tabelas básicas se não existirem
           this.db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -61,8 +60,6 @@ class Database {
           )`, (err) => {
             if (err) {
               console.warn('⚠️ Erro ao criar tabela users:', err.message);
-            } else {
-              console.log('✅ Tabela users verificada');
             }
           });
           
@@ -100,8 +97,10 @@ class Database {
       this.db.run(sql, params, function(err) {
         if (err) {
           console.error('❌ Erro SQL:', err.message);
-          console.error('📝 Query:', sql.substring(0, 100) + '...');
-          console.error('📋 Params:', params);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('📝 Query:', sql.substring(0, 100) + '...');
+            console.error('📋 Params:', params);
+          }
           reject(err);
         } else {
           resolve({ id: this.lastID, changes: this.changes });
@@ -115,8 +114,10 @@ class Database {
       this.db.get(sql, params, (err, row) => {
         if (err) {
           console.error('❌ Erro SQL:', err.message);
-          console.error('📝 Query:', sql.substring(0, 100) + '...');
-          console.error('📋 Params:', params);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('📝 Query:', sql.substring(0, 100) + '...');
+            console.error('📋 Params:', params);
+          }
           reject(err);
         } else {
           resolve(row);
@@ -130,8 +131,10 @@ class Database {
       this.db.all(sql, params, (err, rows) => {
         if (err) {
           console.error('❌ Erro SQL:', err.message);
-          console.error('📝 Query:', sql.substring(0, 100) + '...');
-          console.error('📋 Params:', params);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('📝 Query:', sql.substring(0, 100) + '...');
+            console.error('📋 Params:', params);
+          }
           reject(err);
         } else {
           resolve(rows);

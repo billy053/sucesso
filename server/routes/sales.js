@@ -13,8 +13,6 @@ router.get('/', requireOperator, async (req, res) => {
   try {
     const { startDate, endDate, limit = 50 } = req.query;
     
-    console.log('💰 Listando vendas para business:', req.user.businessId);
-    
     let sql = `
       SELECT s.*, 
              GROUP_CONCAT(
@@ -55,7 +53,6 @@ router.get('/', requireOperator, async (req, res) => {
       items: sale.items ? JSON.parse(`[${sale.items}]`) : []
     }));
 
-    console.log('💰 Vendas encontradas:', processedSales.length);
     res.json(processedSales);
   } catch (error) {
     console.error('Erro ao listar vendas:', error);
