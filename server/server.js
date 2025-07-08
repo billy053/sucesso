@@ -144,7 +144,7 @@ app.use((err, req, res, next) => {
 });
 
 // Inicializar servidor
-const server = app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log('🎉 SERVIDOR INICIADO COM SUCESSO!');
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`🌐 Frontend: http://localhost:${PORT}`);
@@ -182,32 +182,15 @@ export const ensureDatabase = async () => {
   }
 };
 
-// Remover o bloco anterior do listen
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log('🎉 SERVIDOR INICIADO COM SUCESSO!');
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  console.log(`🌐 Frontend: http://localhost:${PORT}`);
-  console.log(`🔌 API: http://localhost:${PORT}/api`);
-  console.log(`📊 Health: http://localhost:${PORT}/health`);
-  console.log(`🔒 Ambiente: ${process.env.NODE_ENV || 'production'}`);
-  console.log(`⏰ Uptime: ${process.uptime()}s`);
-});
-
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('🛑 Recebido SIGTERM, encerrando servidor...');
-  server.close(() => {
-    console.log('✅ Servidor encerrado graciosamente');
-    process.exit(0);
-  });
+  process.exit(0);
 });
 
 process.on('SIGINT', () => {
   console.log('🛑 Recebido SIGINT, encerrando servidor...');
-  server.close(() => {
-    console.log('✅ Servidor encerrado graciosamente');
-    process.exit(0);
-  });
+  process.exit(0);
 });
 
 // Tratamento de erros não capturados

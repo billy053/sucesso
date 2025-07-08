@@ -24,7 +24,7 @@ RUN npm run build
 FROM node:18-alpine
 
 # Install SQLite
-RUN apk add --no-cache sqlite
+RUN apk add --no-cache sqlite wget
 
 # Set working directory
 WORKDIR /app
@@ -63,4 +63,4 @@ ENV SUPER_ADMIN_PASSWORD=SuperAdmin2024!
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
