@@ -65,6 +65,11 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // CORS otimizado
 app.use(cors({
   origin: function(origin, callback) {
+    // Em desenvolvimento, permitir qualquer origem
+    if (process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+    
     // Permitir requisições sem origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     
@@ -79,12 +84,7 @@ app.use(cors({
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      // Em desenvolvimento, permitir qualquer origem
-      if (process.env.NODE_ENV === 'development') {
-        callback(null, true);
-      } else {
-        callback(new Error('Não permitido pelo CORS'));
-      }
+      callback(new Error('Não permitido pelo CORS'));
     }
   },
   credentials: true,

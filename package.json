@@ -7,6 +7,7 @@
     "dev": "vite --host 0.0.0.0 --port 3000",
     "dev:server": "cd server && npm run dev",
     "dev:full": "concurrently --kill-others \"npm run dev:server\" \"sleep 3 && npm run dev\"",
+    "dev:full": "concurrently --kill-others \"npm run dev:server\" \"wait-on http://localhost:3001/health && npm run dev\"",
     "build": "tsc --noEmit && vite build",
     "build:prod": "tsc --noEmit && vite build --mode production",
     "build:railway": "tsc --noEmit && vite build --mode production",
