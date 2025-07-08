@@ -442,7 +442,9 @@ function App() {
   return (
     <AuthProvider>
       <NotificationProvider>
-        <AppContent />
+        <div>
+          <AppContent />
+        </div>
       </NotificationProvider>
     </AuthProvider>
   );
