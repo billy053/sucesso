@@ -39,7 +39,6 @@ export function useSales() {
         }));
         setSales(parsedSales);
       }
-        const stored = localStorage.getItem(storageKey);
     };
 
     loadSales();
