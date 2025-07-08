@@ -78,7 +78,9 @@ class Database {
           if (process.env.NODE_ENV === 'development') {
             console.log('🔒 Conexão com banco fechada');
           }
-    });
+          }      );
+      }
+    )
   }
 
   close() {
