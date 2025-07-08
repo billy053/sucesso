@@ -13,7 +13,10 @@ import {
   Save,
   Coffee,
   Building2,
-  Key
+  Key,
+  UserPlus,
+  Crown,
+  Settings
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { BusinessSelector } from './BusinessSelector';
