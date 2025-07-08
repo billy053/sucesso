@@ -69,6 +69,7 @@ interface AuthContextType {
   setupDualPasswords: (email: string, adminCredentials: UserCredentials, operatorCredentials: UserCredentials) => Promise<boolean>;
   checkUserPasswordStatus: (email: string) => 'not_found' | 'needs_setup' | 'ready';
   checkUserPasswordStatusAsync: (email: string) => Promise<'not_found' | 'needs_setup' | 'ready'>;
+  checkEmailAccessAsync: (email: string) => Promise<boolean>;
   requestPasswordReset: (email: string) => Promise<boolean>;
   resetPassword: (email: string, resetCode: string, newPassword: string) => Promise<boolean>;
   validateResetCode: (email: string, resetCode: string) => boolean;
@@ -80,6 +81,8 @@ interface AuthContextType {
   getAccessRequests: () => AccessRequest[];
   getAuthorizedUsers: () => AuthorizedUser[];
   getRestrictedUsers: () => RestrictedUser[];
+  getAccessRequestsAsync: () => Promise<AccessRequest[]>;
+  getAuthorizedUsersAsync: () => Promise<AuthorizedUser[]>;
   approveAccess: (requestId: string) => Promise<void>;
   rejectAccess: (requestId: string, reason: string) => Promise<void>;
   checkEmailAccess: (email: string) => boolean;
