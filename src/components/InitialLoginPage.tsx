@@ -13,7 +13,6 @@ import {
   Save,
   Coffee,
   Building2,
-  EyeOff,
   Key
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
