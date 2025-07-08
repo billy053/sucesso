@@ -625,6 +625,7 @@ export function EnhancedPDV(): JSX.Element {
       {/* Scanner Modal */}
       {showScanner && (
         <BarcodeScanner
+          isOpen={showScanner}
           onScan={handleBarcodeScanned}
           onClose={() => setShowScanner(false)}
         />
