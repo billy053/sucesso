@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   ShoppingCart, 
-  Calendar, 
   DollarSign, 
   TrendingUp, 
   Search, 
@@ -14,7 +13,6 @@ import {
   Smartphone,
   Banknote,
   X,
-  Package,
   Clock,
   User,
   Receipt

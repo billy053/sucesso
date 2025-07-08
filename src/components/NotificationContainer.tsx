@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNotifications } from '../contexts/NotificationContext';
 import { NotificationToast } from './NotificationToast';
 
 export function NotificationContainer() {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle, ShoppingCart } from 'lucide-react';
 import { Notification } from '../contexts/NotificationContext';
 

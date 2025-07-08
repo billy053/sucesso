@@ -1,12 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { 
   Shield, 
   Globe, 
   CheckCircle, 
-  AlertTriangle, 
-  Key, 
-  Settings,
-  FileText,
   Clock,
   ExternalLink,
   DollarSign

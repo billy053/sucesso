@@ -40,7 +40,7 @@ export interface SaleItem {
   total: number;
 }
 
-interface DashboardStats {
+export interface DashboardStats {
   totalProducts: number;
   lowStockItems: number;
   dailyRevenue: number;

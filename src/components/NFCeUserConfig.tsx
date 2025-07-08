@@ -3,15 +3,11 @@ import {
   Upload, 
   Shield, 
   CheckCircle, 
-  AlertTriangle, 
   DollarSign, 
-  Clock, 
   FileText,
-  Key,
-  Globe,
   Settings,
   Save,
-  HelpCircle,
+  FileText as FileIcon
   ExternalLink
 } from 'lucide-react';
 

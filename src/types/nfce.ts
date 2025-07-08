@@ -123,7 +123,7 @@ export interface NFCeConfig {
   justificativaContingencia?: string;
 }
 
-interface NFCeConsulta {
+export interface NFCeConsulta {
   chaveAcesso: string;
   status: string;
   dataConsulta: Date;

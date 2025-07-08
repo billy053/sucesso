@@ -7,8 +7,6 @@ import {
   Trash2, 
   AlertTriangle,
   Filter,
-  Download,
-  Upload,
   BarChart3,
   Eye,
   Lock

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Plus, Eye, Printer as Print, Settings, Search, CheckCircle, XCircle, Clock, Ban, Download, AlertTriangle, Shield, ExternalLink, Zap } from 'lucide-react';
 import { useNFCe } from '../hooks/useNFCe';
 import { useSales } from '../hooks/useSales';
