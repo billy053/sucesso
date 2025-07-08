@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   Package, 
   AlertTriangle, 
-  DollarSign,
   ShoppingCart,
   Calendar,
   Users,
-  BarChart3
+  BarChart3,
+  TrendingUp
 } from 'lucide-react';
 import { useProducts } from '../hooks/useProducts';
 import { useSales } from '../hooks/useSales';

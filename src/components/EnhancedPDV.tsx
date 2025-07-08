@@ -11,11 +11,11 @@ import {
   Package,
   AlertTriangle,
   CheckCircle,
-  Clock,
   Pause,
   Play,
   Monitor
-} from 'lucide-react';
+  Coffee,
+  X
 import { useProducts } from '../hooks/useProducts';
 import { useSales } from '../hooks/useSales';
 import { useStockMovements } from '../hooks/useStockMovements';

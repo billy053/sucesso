@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { 
   Store, 
-  Building2, 
   ArrowRight,
   Coffee,
   Package,
-  Sparkles,
+  X,
+  Plus
   Users,
   Shield,
   Clock

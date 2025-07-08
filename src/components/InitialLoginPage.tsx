@@ -13,9 +13,9 @@ import {
   Save,
   Coffee,
   Building2,
-  UserPlus,
-  Settings,
-  Crown
+  Eye,
+  EyeOff,
+  Key
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { BusinessSelector } from './BusinessSelector';

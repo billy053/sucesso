@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { 
   ShoppingCart, 
-  DollarSign, 
   TrendingUp, 
   Search, 
   Filter,
@@ -14,8 +13,7 @@ import {
   Banknote,
   X,
   Clock,
-  User,
-  Receipt
+  Package
 } from 'lucide-react';
 import { useSales } from '../hooks/useSales';
 import { useProducts } from '../hooks/useProducts';
