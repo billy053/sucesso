@@ -277,11 +277,11 @@ export function InitialLoginPage() {
       setUserStatus(localStatus);
       
       if (localStatus === 'ready') {
-        setCurrentView('login');
+        setStep('login');
       } else if (localStatus === 'needs_setup') {
-        setCurrentView('setup');
+        setStep('password-setup');
       } else {
-        setCurrentView('request');
+        setStep('request-access');
       }
       setIsTestingConnection(false);
     }
