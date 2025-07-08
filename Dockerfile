@@ -21,6 +21,9 @@ RUN npm run build
 # Production stage
 FROM node:18-alpine
 
+# Install SQLite
+RUN apk add --no-cache sqlite
+
 # Set working directory
 WORKDIR /app
 
@@ -55,3 +58,7 @@ ENV PORT=3001
 ENV DATABASE_PATH=/app/data/vitana.db
 ENV JWT_SECRET=vitana-jwt-secret-key-2024
 ENV SUPER_ADMIN_PASSWORD=SuperAdmin2024!
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"

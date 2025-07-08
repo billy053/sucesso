@@ -101,14 +101,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [pendingPasswordUser, setPendingPasswordUser] = useState<AuthorizedUser | null>(null);
 
   useEffect(() => {
+    console.log('🔐 Inicializando AuthContext...');
     // Verificar se há usuário logado no localStorage
     const savedUser = localStorage.getItem('current-user');
     const savedSuperAdmin = localStorage.getItem('super-admin-session');
     
     if (savedSuperAdmin) {
+      console.log('👑 Super admin logado');
       setIsSuperAdmin(true);
     } else if (savedUser) {
+      console.log('👤 Usuário logado:', JSON.parse(savedUser).name);
       setUser(JSON.parse(savedUser));
+    } else {
+      console.log('🚪 Nenhum usuário logado');
     }
     setIsLoading(false);
   }, []);

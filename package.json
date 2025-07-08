@@ -9,10 +9,11 @@
     "dev:full": "concurrently \"npm run dev\" \"npm run dev:server\"",
     "build": "npx tsc --noEmit && npx vite build",
     "build:prod": "npx tsc --noEmit && npx vite build --mode production",
-    "start": "cd server && npm run init-db && cd .. && node server/server.js",
+    "start": "node server/server.js",
     "preview": "npx vite preview",
     "lint": "npx eslint .",
-    "typecheck": "npx tsc --noEmit"
+    "typecheck": "npx tsc --noEmit",
+    "postbuild": "echo 'Build completed successfully'"
   },
   "dependencies": {
     "@emailjs/browser": "^4.3.3",

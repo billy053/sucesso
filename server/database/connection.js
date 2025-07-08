@@ -18,8 +18,18 @@ console.log('📄 Arquivo do banco:', dbPath);
 if (!fs.existsSync(dbDir)) {
   console.log('📁 Criando diretório do banco:', dbDir);
   fs.mkdirSync(dbDir, { recursive: true });
+} else {
+  console.log('✅ Diretório do banco já existe');
 }
 
+// Verificar se o arquivo do banco existe
+if (fs.existsSync(dbPath)) {
+  console.log('✅ Arquivo do banco já existe');
+  const stats = fs.statSync(dbPath);
+  console.log('📊 Tamanho do banco:', (stats.size / 1024).toFixed(2), 'KB');
+} else {
+  console.log('📄 Arquivo do banco será criado');
+}
 
 // Configurar SQLite para modo verbose em desenvolvimento
 const sqlite = process.env.NODE_ENV === 'development' ? sqlite3.verbose() : sqlite3;

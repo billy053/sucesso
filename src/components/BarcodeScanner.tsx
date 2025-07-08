@@ -50,6 +50,7 @@ export function BarcodeScanner({ isOpen, onClose, onScan }: BarcodeScannerProps)
     try {
       setError('');
       setIsScanning(true);
+      console.log('📷 Iniciando scanner...');
 
       // Parar stream anterior se existir
       if (streamRef.current) {
@@ -72,11 +73,13 @@ export function BarcodeScanner({ isOpen, onClose, onScan }: BarcodeScannerProps)
       };
 
       console.log('📷 Solicitando acesso à câmera...');
+      console.log('📷 Solicitando acesso à câmera...');
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       
       streamRef.current = stream;
       setHasPermission(true);
 
+        console.log('✅ Câmera iniciada com sucesso');
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         
@@ -88,6 +91,7 @@ export function BarcodeScanner({ isOpen, onClose, onScan }: BarcodeScannerProps)
                 console.log('✅ Câmera iniciada com sucesso');
                 resolve();
               }).catch(error => {
+      console.error('❌ Erro ao iniciar câmera:', error);
                 console.error('Erro ao reproduzir vídeo:', error);
                 setError('Erro ao iniciar reprodução da câmera');
               });

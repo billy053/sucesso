@@ -1,10 +1,15 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || (
+  import.meta.env.PROD 
+    ? `${window.location.origin}/api`
+    : 'http://localhost:3001/api'
+);
 
 class ApiService {
   private token: string | null = null;
 
   constructor() {
     this.token = localStorage.getItem('auth-token');
+    console.log('🔗 API Base URL:', API_BASE_URL);
   }
 
   setToken(token: string) {
@@ -30,6 +35,7 @@ class ApiService {
     }
 
     try {
+      console.log(`🌐 ${options.method || 'GET'} ${url}`);
       const response = await fetch(url, {
         ...options,
         headers,
@@ -37,12 +43,20 @@ class ApiService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+        console.error(`❌ Erro ${response.status}:`, errorData);
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
       return await response.json();
     } catch (error) {
       console.error(`Erro na requisição ${endpoint}:`, error);
+      
+      // Se for erro de rede, tentar fallback local
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.warn('🔄 Tentando fallback para dados locais...');
+        throw new Error('Sem conexão com o servidor. Usando dados locais.');
+      }
+      
       throw error;
     }
   }

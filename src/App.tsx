@@ -92,7 +92,8 @@ function AppContent() {
           <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse shadow-lg shadow-yellow-500/25">
             <Package className="h-8 w-8 text-black" />
           </div>
-          <p className="text-white text-lg">Carregando sistema...</p>
+          <p className="text-white text-lg">Carregando Sistema Vitana...</p>
+          <p className="text-gray-400 text-sm mt-2">v2.0.0</p>
         </div>
       </div>
     );
