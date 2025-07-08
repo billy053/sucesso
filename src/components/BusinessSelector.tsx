@@ -5,7 +5,7 @@ import {
   Coffee,
   Package,
   X,
-  Plus
+  Plus,
   Users,
   Shield,
   Clock
