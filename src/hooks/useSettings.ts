@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { DatabaseService } from '../services/databaseService';
+import { apiService } from '../services/apiService';
 
 interface AppSettings {
   businessName: string;
