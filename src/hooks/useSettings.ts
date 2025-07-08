@@ -24,31 +24,44 @@ export function useSettings() {
     if (!user) return;
     
     const loadSettings = async () => {
-      const storageKey = getStorageKey(user.businessId);
-      
-      // Tentar carregar da nuvem primeiro
-      const cloudData = await DatabaseService.loadData(storageKey, user.id, user.businessId);
-      
-      if (cloudData) {
-        setSettings(cloudData);
-      } else {
-        // Fallback para dados locais ou padrão
-        const stored = localStorage.getItem(storageKey);
-        
-        if (stored) {
-          const parsedSettings = JSON.parse(stored);
-          setSettings(parsedSettings);
-        } else {
-          // Configurações padrão
-          const defaultSettings: AppSettings = {
-            businessName: 'Sistema de Gestão',
-            businessSubtitle: 'Depósito de Bebidas',
-            logoUrl: '',
-            useCustomLogo: false,
+      try {
+        const serverSettings = await apiService.getBusinessSettings();
+        if (serverSettings) {
+          const mappedSettings: AppSettings = {
+            businessName: serverSettings.name || 'Sistema de Gestão',
+            businessSubtitle: serverSettings.subtitle || 'Depósito de Bebidas',
+            logoUrl: serverSettings.logo_url || '',
+            useCustomLogo: serverSettings.use_custom_logo || false,
           };
-          setSettings(defaultSettings);
-          await DatabaseService.saveData(storageKey, defaultSettings, user.id, user.businessId);
+          setSettings(mappedSettings);
+          
+          // Backup local
+          const storageKey = getStorageKey(user.businessId);
+          localStorage.setItem(storageKey, JSON.stringify(mappedSettings));
+          return;
         }
+      } catch (error) {
+        console.error('Erro ao carregar configurações do servidor:', error);
+      }
+      
+      // Fallback para dados locais
+      const storageKey = getStorageKey(user.businessId);
+      const stored = localStorage.getItem(storageKey);
+      
+      if (stored) {
+        const parsedSettings = JSON.parse(stored);
+        setSettings(parsedSettings);
+      } else {
+        // Configurações padrão
+        const defaultSettings: AppSettings = {
+          businessName: 'Sistema de Gestão',
+          businessSubtitle: 'Depósito de Bebidas',
+          logoUrl: '',
+          useCustomLogo: false,
+        };
+        setSettings(defaultSettings);
+        const storageKey = getStorageKey(user.businessId);
+        localStorage.setItem(storageKey, JSON.stringify(defaultSettings));
       }
     };
 
@@ -61,8 +74,23 @@ export function useSettings() {
     const updatedSettings = { ...settings, ...newSettings };
     setSettings(updatedSettings);
     
+    try {
+      // Mapear para formato do servidor
+      const serverSettings = {
+        name: updatedSettings.businessName,
+        subtitle: updatedSettings.businessSubtitle,
+        logoUrl: updatedSettings.logoUrl,
+        useCustomLogo: updatedSettings.useCustomLogo
+      };
+      
+      await apiService.updateBusinessSettings(serverSettings);
+    } catch (error) {
+      console.error('Erro ao salvar configurações no servidor:', error);
+    }
+    
+    // Backup local
     const storageKey = getStorageKey(user.businessId);
-    await DatabaseService.saveData(storageKey, updatedSettings, user.id, user.businessId);
+    localStorage.setItem(storageKey, JSON.stringify(updatedSettings));
   };
 
   const resetSettings = async () => {

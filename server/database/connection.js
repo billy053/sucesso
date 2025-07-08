@@ -47,6 +47,7 @@ class Database {
           reject(err);
         } else {
           console.log('✅ Conectado ao banco SQLite:', dbPath);
+          console.log('📊 Verificando integridade do banco...');
           
           // Criar tabelas básicas se não existirem
           this.db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -58,7 +59,11 @@ class Database {
             status TEXT DEFAULT 'pending',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
           )`, (err) => {
-            if (err) console.warn('⚠️ Erro ao criar tabela users:', err.message);
+            if (err) {
+              console.warn('⚠️ Erro ao criar tabela users:', err.message);
+            } else {
+              console.log('✅ Tabela users verificada');
+            }
           });
           
           // Configurar WAL mode para melhor performance

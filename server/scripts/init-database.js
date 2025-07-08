@@ -278,12 +278,12 @@ const initDatabase = async () => {
       await database.run(`
         INSERT OR IGNORE INTO user_credentials (id, user_id, username, password_hash, role)
         VALUES (?, ?, ?, ?, ?)
-      `, ['cred-admin-1', demoUserId, 'admin', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.s5uO8K', 'admin']); // senha: admin123
+      `, ['cred-admin-1', demoUserId, 'admin', await bcrypt.hash('admin123', 12), 'admin']);
       
       await database.run(`
         INSERT OR IGNORE INTO user_credentials (id, user_id, username, password_hash, role)
         VALUES (?, ?, ?, ?, ?)
-      `, ['cred-op-1', demoUserId, 'operador', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.s5uO8K', 'operator']); // senha: operador123
+      `, ['cred-op-1', demoUserId, 'operador', await bcrypt.hash('operador123', 12), 'operator']);
       
       console.log('✅ Usuário demo criado');
     }

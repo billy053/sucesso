@@ -68,6 +68,7 @@ interface AuthContextType {
   login: (email: string, username: string, password: string) => Promise<boolean>;
   setupDualPasswords: (email: string, adminCredentials: UserCredentials, operatorCredentials: UserCredentials) => Promise<boolean>;
   checkUserPasswordStatus: (email: string) => 'not_found' | 'needs_setup' | 'ready';
+  checkUserPasswordStatusAsync: (email: string) => Promise<'not_found' | 'needs_setup' | 'ready'>;
   requestPasswordReset: (email: string) => Promise<boolean>;
   resetPassword: (email: string, resetCode: string, newPassword: string) => Promise<boolean>;
   validateResetCode: (email: string, resetCode: string) => boolean;
@@ -396,23 +397,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const checkUserPasswordStatus = (email: string): 'not_found' | 'needs_setup' | 'ready' => {
-    try {
-      // Implementar chamada para API
-      const authorizedUsers = getAuthorizedUsers();
-      const user = authorizedUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-      
-      if (!user) {
-        return 'not_found';
-      }
-      
-      if (!user.hasSetupPassword) {
-        return 'needs_setup';
-      }
-      
-      return 'ready';
-    } catch (error) {
-      console.error('Erro ao verificar status:', error);
+    // Esta função agora será assíncrona via useEffect nos componentes
+    const authorizedUsers = getAuthorizedUsers();
+    const user = authorizedUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+    
+    if (!user) {
       return 'not_found';
+    }
+    
+    if (!user.hasSetupPassword) {
+      return 'needs_setup';
+    }
+    
+    return 'ready';
+  };
+
+  const checkUserPasswordStatusAsync = async (email: string): Promise<'not_found' | 'needs_setup' | 'ready'> => {
+    try {
+      const response = await apiService.checkUserStatus(email);
+      return response.status;
+    } catch (error) {
+      console.error('Erro ao verificar status no servidor:', error);
+      // Fallback para verificação local
+      return checkUserPasswordStatus(email);
     }
   };
 
@@ -609,6 +616,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login, 
       setupDualPasswords, // ✅ Nova função para configurar senhas duplas
       checkUserPasswordStatus,
+      checkUserPasswordStatusAsync,
       requestPasswordReset,
       resetPassword,
       validateResetCode,

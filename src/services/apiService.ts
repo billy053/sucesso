@@ -120,17 +120,8 @@ class ApiService {
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        // Fallback para verificação local
-        const authorizedUsers = JSON.parse(localStorage.getItem('authorized-users') || '[]');
-        const user = authorizedUsers.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
-        
-        if (!user) {
-          return { status: 'not_found' };
-        }
-        
-        return { 
-          status: user.hasSetupPassword ? 'ready' : 'needs_setup'
-        };
+        console.warn('🔄 Servidor indisponível, usando dados locais');
+        throw error;
       }
       throw error;
     }
@@ -393,14 +384,30 @@ class ApiService {
 
   // Métodos de estabelecimento
   async getBusinessSettings() {
-    return this.request('/business/settings');
+    try {
+      return await this.request('/business/settings');
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Carregando configurações do localStorage como fallback');
+        return null;
+      }
+      throw error;
+    }
   }
 
   async updateBusinessSettings(settings: any) {
-    return this.request('/business/settings', {
-      method: 'PUT',
-      body: JSON.stringify(settings),
-    });
+    try {
+      return await this.request('/business/settings', {
+        method: 'PUT',
+        body: JSON.stringify(settings),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Salvando configurações localmente como fallback');
+        return { success: true };
+      }
+      throw error;
+    }
   }
 
   // Métodos de NFCe

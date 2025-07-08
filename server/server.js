@@ -48,7 +48,9 @@ app.get('/health', (req, res) => {
     environment: process.env.NODE_ENV || 'production',
     uptime: process.uptime(),
     port: PORT,
-    pid: process.pid
+    pid: process.pid,
+    database: 'SQLite',
+    memory: process.memoryUsage()
   });
 });
 
@@ -62,7 +64,9 @@ app.get('/api/health', (req, res) => {
     environment: process.env.NODE_ENV || 'production',
     uptime: process.uptime(),
     port: PORT,
-    pid: process.pid
+    pid: process.pid,
+    database: 'SQLite',
+    memory: process.memoryUsage()
   });
 });
 
