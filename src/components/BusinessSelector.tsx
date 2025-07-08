@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { 
   Store, 
-  Plus, 
   Building2, 
   ArrowRight,
   Coffee,

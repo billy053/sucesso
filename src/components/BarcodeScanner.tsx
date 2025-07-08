@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Camera, X, Flashlight, FlashlightOff, RotateCcw } from 'lucide-react';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 
@@ -93,7 +93,7 @@ export function BarcodeScanner({ onScan, onClose, isOpen }: BarcodeScannerProps)
         console.log('🔍 Iniciando detecção de código de barras...');
         
         // Usar método correto da biblioteca ZXing
-        reader.decodeFromVideoDevice(undefined, videoRef.current, (result, error) => {
+        reader.decodeFromVideoDevice(null, videoRef.current, (result, error) => {
           if (result) {
             const barcode = result.getText();
             console.log('✅ Código detectado:', barcode);
