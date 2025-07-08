@@ -44,8 +44,25 @@ class ApiService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        let errorMessage = `HTTP ${response.status}`;
+        
+        try {
+          // First try to parse as JSON
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch {
+          // If JSON parsing fails, try to read as text
+          try {
+            const errorText = await response.text();
+            if (errorText.trim()) {
+              errorMessage = errorText;
+            }
+          } catch {
+            // If both fail, keep the HTTP status message
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
       return await response.json();
