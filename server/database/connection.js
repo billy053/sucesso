@@ -48,6 +48,19 @@ class Database {
         } else {
           console.log('✅ Conectado ao banco SQLite:', dbPath);
           
+          // Criar tabelas básicas se não existirem
+          this.db.run(`CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            full_name TEXT NOT NULL,
+            business_name TEXT NOT NULL,
+            business_description TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )`, (err) => {
+            if (err) console.warn('⚠️ Erro ao criar tabela users:', err.message);
+          });
+          
           // Configurar WAL mode para melhor performance
           this.db.run('PRAGMA journal_mode = WAL;');
           this.db.run('PRAGMA synchronous = NORMAL;');

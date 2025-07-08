@@ -15,6 +15,8 @@ RUN cd server && npm ci
 # Copy source code
 COPY . .
 
+# Ensure scripts directory exists
+RUN mkdir -p server/scripts
 # Build the frontend
 RUN npm run build
 

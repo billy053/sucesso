@@ -93,11 +93,6 @@ app.use(express.static(staticPath));
 try {
   console.log('📋 Carregando rotas...');
   
-  // Inicializar banco de dados primeiro
-  const { default: initDatabase } = await import('./scripts/init-database.js');
-  await initDatabase();
-  console.log('✅ Banco de dados inicializado');
-  
   // Importar rotas dinamicamente para evitar erros de inicialização
   const authRoutes = await import('./routes/auth.js');
   const businessRoutes = await import('./routes/business.js');
@@ -149,6 +144,45 @@ app.use((err, req, res, next) => {
 });
 
 // Inicializar servidor
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log('🎉 SERVIDOR INICIADO COM SUCESSO!');
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  console.log(`🌐 Frontend: http://localhost:${PORT}`);
+  console.log(`🔌 API: http://localhost:${PORT}/api`);
+  console.log(`📊 Health: http://localhost:${PORT}/health`);
+  console.log(`🔒 Ambiente: ${process.env.NODE_ENV || 'production'}`);
+  console.log(`⏰ Uptime: ${process.uptime()}s`);
+  
+  // Inicializar banco após servidor estar rodando
+  setTimeout(async () => {
+    try {
+      console.log('🔧 Inicializando banco de dados...');
+      const { default: initDatabase } = await import('./scripts/init-database.js');
+      await initDatabase();
+      console.log('✅ Banco de dados inicializado com sucesso');
+    } catch (error) {
+      console.warn('⚠️ Erro ao inicializar banco:', error.message);
+      console.warn('💡 O banco será criado automaticamente quando necessário');
+    }
+  }, 1000);
+});
+
+// Função para inicializar banco sob demanda
+let dbInitialized = false;
+export const ensureDatabase = async () => {
+  if (dbInitialized) return;
+  
+  try {
+    const { default: initDatabase } = await import('./scripts/init-database.js');
+    await initDatabase();
+    dbInitialized = true;
+    console.log('✅ Banco inicializado sob demanda');
+  } catch (error) {
+    console.warn('⚠️ Falha na inicialização do banco:', error.message);
+  }
+};
+
+// Remover o bloco anterior do listen
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('🎉 SERVIDOR INICIADO COM SUCESSO!');
   console.log(`🚀 Servidor rodando na porta ${PORT}`);

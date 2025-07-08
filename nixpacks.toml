@@ -2,10 +2,16 @@
 nixPkgs = ["nodejs_18", "npm-9_x", "sqlite"]
 
 [phases.install]
-cmds = ["npm ci", "cd server && npm ci"]
+cmds = [
+  "npm ci", 
+  "cd server && npm ci --omit=optional"
+]
 
 [phases.build]
-cmds = ["npm run build:prod"]
+cmds = [
+  "npm run build:prod",
+  "echo 'Build completed successfully'"
+]
 
 [start]
 cmd = "npm start"

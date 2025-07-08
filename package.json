@@ -13,7 +13,9 @@
     "preview": "npx vite preview",
     "lint": "npx eslint .",
     "typecheck": "npx tsc --noEmit",
-    "postbuild": "echo 'Build completed successfully'"
+    "postbuild": "echo 'Build completed successfully'",
+    "railway:build": "npm run build:prod",
+    "railway:start": "npm start"
   },
   "dependencies": {
     "@emailjs/browser": "^4.3.3",
