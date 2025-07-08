@@ -5,13 +5,16 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     
     <!-- Meta tags otimizadas para mobile -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#000000" />
     <meta name="msapplication-navbutton-color" content="#000000" />
     <meta name="apple-mobile-web-app-title" content="Sistema Vitana" />
+    
+    <!-- Permissões para câmera -->
+    <meta http-equiv="Permissions-Policy" content="camera=*, microphone=(), geolocation=(), payment=()">
     
     <!-- Preload de fontes para melhor performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -241,6 +244,11 @@
       // Melhorar performance em dispositivos móveis
       if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
         document.documentElement.classList.add('mobile-device');
+        
+        // Solicitar permissões de câmera antecipadamente no mobile
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          console.log('📷 Verificando disponibilidade da câmera...');
+        }
       }
     </script>
   </body>
