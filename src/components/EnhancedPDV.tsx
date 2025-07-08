@@ -32,13 +32,8 @@ interface CartItem extends SaleItem {
 
 type PaymentMethod = 'dinheiro' | 'pix' | 'cartão' | 'débito';
 
-const STANDBY_TIMEOUT = 2 * 60 * 1000; // 2 minutos
+const STANDBY_TIMEOUT\ = 2 * 60 * 1000; // 2 minutos
 
-export function EnhancedPDV() {
-  // ... rest of the code remains unchanged ...
+export function \EnhancedPDV() {
+  // ... rest of the code remains uncha\nged ...
 }
-```
-
-The main fixes were:
-1. Added closing curly brace `}` after the `Monitor` import
-2. Added closing curly brace `}` at the very end of the file to close the `EnhancedPDV` function
