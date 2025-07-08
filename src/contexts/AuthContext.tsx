@@ -111,7 +111,7 @@ const STORAGE_KEYS = {
   RESTRICTED_USERS: 'vitana-restricted-users',
   USER_CREDENTIALS: 'vitana-user-credentials',
   CURRENT_USER: 'vitana-current-user',
-  SUPER_ADMIN_SESSION: 'vitana-super-admin-session',
+    requestDate: typeof r.requestDate === 'string' ? new Date(r.requestDate) : r.requestDate
   CONNECTION_STATUS: 'vitana-connection-status'
 };
 
@@ -611,10 +611,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Implementações das funções restantes (simplificadas para brevidade)
-  const getAccessRequests = () => getStoredData<AccessRequest>(STORAGE_KEYS.ACCESS_REQUESTS);
+  const getAccessRequests = () => getStoredData<AccessRequest>(STORAGE_KEYS.ACCESS_REQUESTS).map(r => ({
+    ...r,
+    requestDate: typeof r.requestDate === 'string' ? new Date(r.requestDate) : r.requestDate
+  }));
   const getAuthorizedUsers = () => getStoredData<AuthorizedUser>(STORAGE_KEYS.AUTHORIZED_USERS);
   const getRestrictedUsers = () => getStoredData<RestrictedUser>(STORAGE_KEYS.RESTRICTED_USERS);
-  const getAuthorizedUsersAsync = async () => getAuthorizedUsers();
+  const getAuthorizedUsersAsync = async () => getStoredData<AuthorizedUser>(STORAGE_KEYS.AUTHORIZED_USERS).map(u => ({
+    ...u,
+    approvedDate: typeof u.approvedDate === 'string' ? new Date(u.approvedDate) : u.approvedDate
+  }));
   const checkUserPasswordStatus = () => 'not_found' as const;
   const checkEmailAccess = () => false;
   const checkEmailAccessAsync = async () => false;
