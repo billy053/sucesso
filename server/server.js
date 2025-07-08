@@ -84,8 +84,8 @@ app.use(cors({
 
 // Middleware de logging
 app.use((req, res, next) => {
-  // Log apenas para health checks em desenvolvimento
-  if (process.env.NODE_ENV === 'development' && req.path !== '/health') {
+  // Log apenas em desenvolvimento e não para health checks
+  if (process.env.NODE_ENV === 'development' && !req.path.includes('/health')) {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   }
   next();
@@ -164,10 +164,15 @@ app.listen(PORT, '0.0.0.0', () => {
   // Inicializar banco após servidor estar rodando
   setTimeout(async () => {
     try {
-      console.log('🔧 Inicializando banco de dados...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔧 Inicializando banco de dados...');
+      }
       const { default: initDatabase } = await import('./scripts/init-database.js');
       await initDatabase();
-      console.log('✅ Banco de dados inicializado com sucesso');
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Banco de dados inicializado com sucesso');
+      }
       
       // Verificar se dados foram criados
       const database = await import('./database/connection.js');
@@ -184,8 +189,10 @@ app.listen(PORT, '0.0.0.0', () => {
       
       await database.default.close();
     } catch (error) {
-      console.warn('⚠️ Erro ao inicializar banco:', error.message);
-      console.warn('💡 O banco será criado automaticamente quando necessário');
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ Erro ao inicializar banco:', error.message);
+        console.warn('💡 O banco será criado automaticamente quando necessário');
+      }
     }
   }, 2000); // Aumentar delay para garantir que o servidor esteja totalmente pronto
 });

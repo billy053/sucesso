@@ -11,24 +11,26 @@ const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'vitana.db');
 const dbDir = path.dirname(dbPath);
 
 console.log('💾 Configurando banco de dados...');
-console.log('📁 Diretório do banco:', dbDir);
-console.log('📄 Arquivo do banco:', dbPath);
+if (process.env.NODE_ENV === 'development') {
+  console.log('📁 Diretório do banco:', dbDir);
+  console.log('📄 Arquivo do banco:', dbPath);
+}
 
 // Garantir que o diretório do banco existe
 if (!fs.existsSync(dbDir)) {
-  console.log('📁 Criando diretório do banco:', dbDir);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('📁 Criando diretório do banco:', dbDir);
+  }
   fs.mkdirSync(dbDir, { recursive: true });
-} else {
-  console.log('✅ Diretório do banco já existe');
 }
 
 // Verificar se o arquivo do banco existe
 if (fs.existsSync(dbPath)) {
-  console.log('✅ Arquivo do banco já existe');
-  const stats = fs.statSync(dbPath);
-  console.log('📊 Tamanho do banco:', (stats.size / 1024).toFixed(2), 'KB');
-} else {
-  console.log('📄 Arquivo do banco será criado');
+  if (process.env.NODE_ENV === 'development') {
+    console.log('✅ Arquivo do banco já existe');
+    const stats = fs.statSync(dbPath);
+    console.log('📊 Tamanho do banco:', (stats.size / 1024).toFixed(2), 'KB');
+  }
 }
 
 // Configurar SQLite para modo verbose em desenvolvimento
@@ -46,7 +48,9 @@ class Database {
           console.error('❌ Erro ao conectar com o banco:', err.message);
           reject(err);
         } else {
-          console.log('✅ Conectado ao banco SQLite:', dbPath);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('✅ Conectado ao banco SQLite:', dbPath);
+          }
           
           // Criar tabelas básicas se não existirem
           this.db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -71,7 +75,9 @@ class Database {
           
           resolve();
         }
-      });
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔒 Conexão com banco fechada');
+          }
     });
   }
 
@@ -96,8 +102,8 @@ class Database {
     return new Promise((resolve, reject) => {
       this.db.run(sql, params, function(err) {
         if (err) {
-          console.error('❌ Erro SQL:', err.message);
           if (process.env.NODE_ENV === 'development') {
+            console.error('❌ Erro SQL:', err.message);
             console.error('📝 Query:', sql.substring(0, 100) + '...');
             console.error('📋 Params:', params);
           }
@@ -113,8 +119,8 @@ class Database {
     return new Promise((resolve, reject) => {
       this.db.get(sql, params, (err, row) => {
         if (err) {
-          console.error('❌ Erro SQL:', err.message);
           if (process.env.NODE_ENV === 'development') {
+            console.error('❌ Erro SQL:', err.message);
             console.error('📝 Query:', sql.substring(0, 100) + '...');
             console.error('📋 Params:', params);
           }
@@ -130,8 +136,8 @@ class Database {
     return new Promise((resolve, reject) => {
       this.db.all(sql, params, (err, rows) => {
         if (err) {
-          console.error('❌ Erro SQL:', err.message);
           if (process.env.NODE_ENV === 'development') {
+            console.error('❌ Erro SQL:', err.message);
             console.error('📝 Query:', sql.substring(0, 100) + '...');
             console.error('📋 Params:', params);
           }

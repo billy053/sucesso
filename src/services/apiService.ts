@@ -10,21 +10,7 @@ class ApiService {
   constructor() {
     this.token = localStorage.getItem('auth-token');
     
-    // Testar conexão inicial
-    this.testConnection();
-  }
-  
-  private async testConnection() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/health`);
-      if (response.ok) {
-        // Conexão OK
-      } else {
-        // Servidor com erro
-      }
-    } catch (error) {
-      // Sem conexão
-    }
+    console.log('🔗 API Service inicializado:', API_BASE_URL);
   }
 
   setToken(token: string) {

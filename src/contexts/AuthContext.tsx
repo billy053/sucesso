@@ -129,7 +129,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
     } catch (error) {
-      console.error('Erro no login super admin:', error);
       // Fallback para verificação local
       if (password === SUPER_ADMIN_PASSWORD) {
         setIsSuperAdmin(true);
@@ -163,10 +162,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const getAccessRequests = (): AccessRequest[] => {
     try {
-      // Tentar carregar do servidor primeiro
-      return []; // Será implementado com chamada real da API
+      // Esta função será chamada de forma assíncrona nos componentes
+      const requests = localStorage.getItem('access-requests');
+      if (requests) {
+        return JSON.parse(requests).map((r: any) => ({
+          ...r,
+          requestDate: new Date(r.requestDate)
+        }));
+      }
     } catch (error) {
-      // Fallback para localStorage
       const requests = localStorage.getItem('access-requests');
       if (requests) {
         return JSON.parse(requests).map((r: any) => ({
@@ -204,6 +208,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const approveAccess = async (requestId: string): Promise<void> => {
     try {
       await apiService.approveAccess(requestId);
+      
+      // Atualizar dados locais também
+      const requests = getAccessRequests();
+      const request = requests.find(r => r.id === requestId);
+      
+      if (request) {
+        const updatedRequests = requests.map(r => 
+          r.id === requestId ? { ...r, status: 'approved' as const } : r
+        );
+        localStorage.setItem('access-requests', JSON.stringify(updatedRequests));
+        
+        const authorizedUsers = getAuthorizedUsers();
+        const newAuthorizedUser: AuthorizedUser = {
+          id: Date.now().toString(),
+          fullName: request.fullName,
+          email: request.email,
+          businessName: request.businessName,
+          approvedDate: new Date(),
+          hasSetupPassword: false
+        };
+        
+        authorizedUsers.push(newAuthorizedUser);
+        localStorage.setItem('authorized-users', JSON.stringify(authorizedUsers));
+      }
     } catch (error) {
       // Fallback para localStorage
       const requests = getAccessRequests();
@@ -291,6 +319,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const rejectAccess = async (requestId: string, reason: string): Promise<void> => {
     try {
       await apiService.rejectAccess(requestId, reason);
+      
+      // Atualizar dados locais também
+      const requests = getAccessRequests();
+      const updatedRequests = requests.map(r => 
+        r.id === requestId ? { ...r, status: 'rejected' as const, rejectionReason: reason } : r
+      );
+      localStorage.setItem('access-requests', JSON.stringify(updatedRequests));
     } catch (error) {
       // Fallback para localStorage
       const requests = getAccessRequests();
@@ -528,6 +563,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
     } catch (error) {
+      console.warn('Tentando login local como fallback...');
       // Fallback para localStorage
       const allCredentials = JSON.parse(localStorage.getItem('user-credentials') || '[]');
       const userCredentials = allCredentials.find((cred: any) => 
@@ -559,7 +595,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('current-user', JSON.stringify(userSession));
         setIsLoading(false);
         return true;
-      } else {
       }
     }
     

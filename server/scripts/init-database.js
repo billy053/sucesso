@@ -3,14 +3,18 @@ import bcrypt from 'bcryptjs';
 
 const initDatabase = async () => {
   try {
-    console.log('🔧 Inicializando banco de dados...');
-    console.log('📁 Diretório atual:', process.cwd());
-    console.log('💾 Caminho do banco:', process.env.DATABASE_PATH || 'padrão');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 Inicializando banco de dados...');
+      console.log('📁 Diretório atual:', process.cwd());
+      console.log('💾 Caminho do banco:', process.env.DATABASE_PATH || 'padrão');
+    }
     
     await database.connect();
 
     // Criar tabelas
-    console.log('📋 Criando tabelas...');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📋 Criando tabelas...');
+    }
 
     // Tabela de usuários e autenticação
     await database.run(`
@@ -162,7 +166,9 @@ const initDatabase = async () => {
     `);
 
     // Criar índices para performance
-    console.log('🔍 Criando índices...');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Criando índices...');
+    }
     
     await database.run('CREATE INDEX IF NOT EXISTS idx_users_email ON users (email)');
     await database.run('CREATE INDEX IF NOT EXISTS idx_users_status ON users (status)');
@@ -174,7 +180,9 @@ const initDatabase = async () => {
     await database.run('CREATE INDEX IF NOT EXISTS idx_stock_movements_product_id ON stock_movements (product_id)');
 
     // Inserir dados iniciais
-    console.log('📦 Inserindo dados iniciais...');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📦 Inserindo dados iniciais...');
+    }
 
     // Verificar se já existe um estabelecimento padrão
     const existingBusiness = await database.get('SELECT id FROM businesses LIMIT 1');
@@ -265,12 +273,16 @@ const initDatabase = async () => {
         ]);
       }
 
-      console.log('✅ Produtos iniciais inseridos');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Produtos iniciais inseridos');
+      }
       
       // Inserir usuário demo para testes
       const demoUserId = 'demo-user-1';
       
-      console.log('👤 Criando usuário demo...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('👤 Criando usuário demo...');
+      }
       await database.run(`
         INSERT OR IGNORE INTO users (id, email, full_name, business_name, business_description, status)
         VALUES (?, ?, ?, ?, ?, ?)
@@ -288,25 +300,30 @@ const initDatabase = async () => {
         VALUES (?, ?, ?, ?, ?)
       `, ['cred-op-1', demoUserId, 'operador', await bcrypt.hash('operador123', 12), 'operator']);
       
-      console.log('✅ Usuário demo criado');
       if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Usuário demo criado');
         console.log('📧 Email: admin@vitana.com');
         console.log('👤 Admin: admin / admin123');
         console.log('👨‍💼 Operador: operador / operador123');
       }
     }
 
-    console.log('🎉 Banco de dados inicializado com sucesso!');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🎉 Banco de dados inicializado com sucesso!');
+    }
     
   } catch (error) {
-    console.error('❌ Erro ao inicializar banco:', error);
-    // Não falhar o deploy por erro de banco
-    console.warn('⚠️ Continuando sem banco inicializado...');
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Erro ao inicializar banco:', error);
+      console.warn('⚠️ Continuando sem banco inicializado...');
+    }
   } finally {
     try {
       await database.close();
     } catch (error) {
-      console.warn('⚠️ Erro ao fechar banco:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ Erro ao fechar banco:', error);
+      }
     }
   }
 };
