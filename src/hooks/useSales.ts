@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Sale } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { DatabaseService } from '../services/databaseService';
+import { apiService } from '../services/apiService';
 
 const getStorageKey = (businessId: string) => `business-${businessId}-sales`;
 
@@ -13,29 +13,33 @@ export function useSales() {
     if (!user) return;
     
     const loadSales = async () => {
+      try {
+        const serverSales = await apiService.getSales();
+        if (serverSales && serverSales.length > 0) {
+          const parsedSales = serverSales.map((s: any) => ({
+            ...s,
+            date: new Date(s.created_at || s.date),
+            items: s.items || []
+          }));
+          setSales(parsedSales);
+          return;
+        }
+      } catch (error) {
+        console.error('Erro ao carregar vendas do servidor:', error);
+      }
+      
+      // Fallback para dados locais
       const storageKey = getStorageKey(user.businessId);
+      const stored = localStorage.getItem(storageKey);
       
-      // Tentar carregar da nuvem primeiro
-      const cloudData = await DatabaseService.loadData(storageKey, user.id, user.businessId);
-      
-      if (cloudData) {
-        const parsedSales = cloudData.map((s: any) => ({
+      if (stored) {
+        const parsedSales = JSON.parse(stored).map((s: any) => ({
           ...s,
           date: new Date(s.date),
         }));
         setSales(parsedSales);
-      } else {
-        // Fallback para dados locais
-        const stored = localStorage.getItem(storageKey);
-        
-        if (stored) {
-          const parsedSales = JSON.parse(stored).map((s: any) => ({
-            ...s,
-            date: new Date(s.date),
-          }));
-          setSales(parsedSales);
-        }
       }
+        const stored = localStorage.getItem(storageKey);
     };
 
     loadSales();
@@ -45,13 +49,34 @@ export function useSales() {
     if (!user) return;
     
     setSales(updatedSales);
-    const storageKey = getStorageKey(user.businessId);
     
-    // Salvar na nuvem e localmente
-    await DatabaseService.saveData(storageKey, updatedSales, user.id, user.businessId);
+    // Backup local
+    const storageKey = getStorageKey(user.businessId);
+    localStorage.setItem(storageKey, JSON.stringify(updatedSales));
   };
 
   const addSale = async (sale: Omit<Sale, 'id' | 'date'>) => {
+    try {
+      const serverSale = await apiService.createSale(sale);
+      if (serverSale) {
+        const newSale: Sale = {
+          ...serverSale,
+          date: new Date(serverSale.created_at || serverSale.date),
+          items: serverSale.items || sale.items
+        };
+        const updatedSales = [...sales, newSale];
+        setSales(updatedSales);
+        
+        // Backup local
+        const storageKey = getStorageKey(user.businessId);
+        localStorage.setItem(storageKey, JSON.stringify(updatedSales));
+        return;
+      }
+    } catch (error) {
+      console.error('Erro ao criar venda no servidor:', error);
+    }
+    
+    // Fallback para criação local
     const newSale: Sale = {
       ...sale,
       id: Date.now().toString(),

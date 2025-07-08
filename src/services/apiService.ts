@@ -1,7 +1,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || (
   import.meta.env.PROD 
     ? `${window.location.origin}/api`
-    : 'http://localhost:3001/api'
+    : `${window.location.origin}/api`
 );
 
 class ApiService {
@@ -10,6 +10,7 @@ class ApiService {
   constructor() {
     this.token = localStorage.getItem('auth-token');
     console.log('🔗 API Base URL:', API_BASE_URL);
+    console.log('🌍 Environment:', import.meta.env.PROD ? 'Production' : 'Development');
   }
 
   setToken(token: string) {
@@ -53,8 +54,8 @@ class ApiService {
       
       // Se for erro de rede, tentar fallback local
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.warn('🔄 Tentando fallback para dados locais...');
-        throw new Error('Sem conexão com o servidor. Usando dados locais.');
+        console.warn('🔄 Erro de conexão, usando dados locais como fallback');
+        throw new Error('NETWORK_ERROR');
       }
       
       throw error;
@@ -112,10 +113,27 @@ class ApiService {
   }
 
   async checkUserStatus(email: string) {
-    return this.request('/auth/check-status', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    });
+    try {
+      return await this.request('/auth/check-status', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        // Fallback para verificação local
+        const authorizedUsers = JSON.parse(localStorage.getItem('authorized-users') || '[]');
+        const user = authorizedUsers.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
+        
+        if (!user) {
+          return { status: 'not_found' };
+        }
+        
+        return { 
+          status: user.hasSetupPassword ? 'ready' : 'needs_setup'
+        };
+      }
+      throw error;
+    }
   }
 
   async verifyToken() {
@@ -123,7 +141,16 @@ class ApiService {
   }
 
   async getAccessRequests() {
-    return this.request('/auth/requests');
+    try {
+      return await this.request('/auth/requests');
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        // Fallback para dados locais
+        const requests = localStorage.getItem('access-requests');
+        return requests ? JSON.parse(requests) : [];
+      }
+      throw error;
+    }
   }
 
   async approveAccess(userId: string) {
@@ -141,38 +168,95 @@ class ApiService {
 
   // Métodos de produtos
   async getProducts() {
-    return this.request('/products');
+    try {
+      return await this.request('/products');
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Carregando produtos do localStorage como fallback');
+        const products = localStorage.getItem('business-default-products');
+        return products ? JSON.parse(products) : [];
+      }
+      throw error;
+    }
   }
 
   async getProductByBarcode(barcode: string) {
-    return this.request(`/products/barcode/${barcode}`);
+    try {
+      return await this.request(`/products/barcode/${barcode}`);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        // Fallback para busca local
+        const products = localStorage.getItem('business-default-products');
+        if (products) {
+          const parsedProducts = JSON.parse(products);
+          const product = parsedProducts.find((p: any) => p.barcode === barcode);
+          if (product) {
+            return product;
+          }
+        }
+        throw new Error('Produto não encontrado');
+      }
+      throw error;
+    }
   }
 
   async createProduct(product: any) {
-    return this.request('/products', {
-      method: 'POST',
-      body: JSON.stringify(product),
-    });
+    try {
+      return await this.request('/products', {
+        method: 'POST',
+        body: JSON.stringify(product),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Criando produto localmente como fallback');
+        return null; // Será tratado no hook
+      }
+      throw error;
+    }
   }
 
   async updateProduct(id: string, product: any) {
-    return this.request(`/products/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(product),
-    });
+    try {
+      return await this.request(`/products/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(product),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Atualizando produto localmente como fallback');
+        return null;
+      }
+      throw error;
+    }
   }
 
   async deleteProduct(id: string) {
-    return this.request(`/products/${id}`, {
-      method: 'DELETE',
-    });
+    try {
+      return await this.request(`/products/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Deletando produto localmente como fallback');
+        return { success: true };
+      }
+      throw error;
+    }
   }
 
   async updateProductStock(id: string, quantity: number) {
-    return this.request(`/products/${id}/stock`, {
-      method: 'PATCH',
-      body: JSON.stringify({ quantity }),
-    });
+    try {
+      return await this.request(`/products/${id}/stock`, {
+        method: 'PATCH',
+        body: JSON.stringify({ quantity }),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Atualizando estoque localmente como fallback');
+        return { success: true };
+      }
+      throw error;
+    }
   }
 
   // Métodos de vendas
@@ -183,18 +267,76 @@ class ApiService {
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     
     const query = queryParams.toString();
-    return this.request(`/sales${query ? `?${query}` : ''}`);
+    
+    try {
+      return await this.request(`/sales${query ? `?${query}` : ''}`);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Carregando vendas do localStorage como fallback');
+        const sales = localStorage.getItem('business-default-sales');
+        return sales ? JSON.parse(sales) : [];
+      }
+      throw error;
+    }
   }
 
   async createSale(sale: any) {
-    return this.request('/sales', {
-      method: 'POST',
-      body: JSON.stringify(sale),
-    });
+    try {
+      return await this.request('/sales', {
+        method: 'POST',
+        body: JSON.stringify(sale),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Criando venda localmente como fallback');
+        return null;
+      }
+      throw error;
+    }
   }
 
   async getSalesStats() {
-    return this.request('/sales/stats');
+    try {
+      return await this.request('/sales/stats');
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Calculando estatísticas localmente como fallback');
+        // Calcular estatísticas básicas dos dados locais
+        const sales = localStorage.getItem('business-default-sales');
+        if (sales) {
+          const parsedSales = JSON.parse(sales);
+          const today = new Date().toISOString().split('T')[0];
+          const thisMonth = new Date().toISOString().substring(0, 7);
+          const thisYear = new Date().getFullYear();
+          
+          const dailyRevenue = parsedSales
+            .filter((s: any) => s.date?.startsWith(today))
+            .reduce((total: number, s: any) => total + (s.total || 0), 0);
+            
+          const monthlyRevenue = parsedSales
+            .filter((s: any) => s.date?.startsWith(thisMonth))
+            .reduce((total: number, s: any) => total + (s.total || 0), 0);
+            
+          const yearlyRevenue = parsedSales
+            .filter((s: any) => s.date?.startsWith(thisYear.toString()))
+            .reduce((total: number, s: any) => total + (s.total || 0), 0);
+          
+          return {
+            dailyRevenue,
+            monthlyRevenue,
+            yearlyRevenue,
+            paymentMethods: []
+          };
+        }
+        return {
+          dailyRevenue: 0,
+          monthlyRevenue: 0,
+          yearlyRevenue: 0,
+          paymentMethods: []
+        };
+      }
+      throw error;
+    }
   }
 
   // Métodos de estoque
@@ -283,7 +425,12 @@ class ApiService {
 
   // Health check
   async healthCheck() {
-    return this.request('/health');
+    try {
+      return await this.request('/health');
+    } catch (error) {
+      console.warn('🔄 Health check falhou, servidor pode estar indisponível');
+      return { status: 'offline', timestamp: new Date().toISOString() };
+    }
   }
 }
 

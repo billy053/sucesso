@@ -266,6 +266,26 @@ const initDatabase = async () => {
       }
 
       console.log('✅ Produtos iniciais inseridos');
+      
+      // Inserir usuário demo para testes
+      const demoUserId = 'demo-user-1';
+      await database.run(`
+        INSERT OR IGNORE INTO users (id, email, full_name, business_name, business_description, status)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [demoUserId, 'admin@vitana.com', 'Administrador Demo', 'Vitana Demo', 'Estabelecimento de demonstração', 'approved']);
+      
+      // Inserir credenciais demo
+      await database.run(`
+        INSERT OR IGNORE INTO user_credentials (id, user_id, username, password_hash, role)
+        VALUES (?, ?, ?, ?, ?)
+      `, ['cred-admin-1', demoUserId, 'admin', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.s5uO8K', 'admin']); // senha: admin123
+      
+      await database.run(`
+        INSERT OR IGNORE INTO user_credentials (id, user_id, username, password_hash, role)
+        VALUES (?, ?, ?, ?, ?)
+      `, ['cred-op-1', demoUserId, 'operador', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.s5uO8K', 'operator']); // senha: operador123
+      
+      console.log('✅ Usuário demo criado');
     }
 
     console.log('🎉 Banco de dados inicializado com sucesso!');

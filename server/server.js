@@ -164,7 +164,7 @@ app.listen(PORT, '0.0.0.0', () => {
       console.warn('⚠️ Erro ao inicializar banco:', error.message);
       console.warn('💡 O banco será criado automaticamente quando necessário');
     }
-  }, 1000);
+  }, 2000); // Aumentar delay para garantir que o servidor esteja totalmente pronto
 });
 
 // Função para inicializar banco sob demanda

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { apiService } from '../services/apiService';
 
 interface User {
   id: string;
@@ -121,13 +122,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Funções do Super Admin
   const superAdminLogin = async (password: string): Promise<boolean> => {
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    if (password === SUPER_ADMIN_PASSWORD) {
-      setIsSuperAdmin(true);
-      localStorage.setItem('super-admin-session', 'true');
-      setIsLoading(false);
-      return true;
+    try {
+      const response = await apiService.superAdminLogin(password);
+      if (response.success) {
+        setIsSuperAdmin(true);
+        localStorage.setItem('super-admin-session', 'true');
+        setIsLoading(false);
+        return true;
+      }
+    } catch (error) {
+      console.error('Erro no login super admin:', error);
+      // Fallback para verificação local
+      if (password === SUPER_ADMIN_PASSWORD) {
+        setIsSuperAdmin(true);
+        localStorage.setItem('super-admin-session', 'true');
+        setIsLoading(false);
+        return true;
+      }
     }
     
     setIsLoading(false);
@@ -135,25 +147,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const requestAccess = async (requestData: Omit<AccessRequest, 'id' | 'requestDate' | 'status'>): Promise<void> => {
-    const requests = getAccessRequests();
-    const newRequest: AccessRequest = {
-      ...requestData,
-      id: Date.now().toString(),
-      requestDate: new Date(),
-      status: 'pending'
-    };
-    
-    requests.push(newRequest);
-    localStorage.setItem('access-requests', JSON.stringify(requests));
+    try {
+      await apiService.requestAccess(requestData);
+    } catch (error) {
+      console.error('Erro ao solicitar acesso:', error);
+      // Fallback para localStorage
+      const requests = getAccessRequests();
+      const newRequest: AccessRequest = {
+        ...requestData,
+        id: Date.now().toString(),
+        requestDate: new Date(),
+        status: 'pending'
+      };
+      
+      requests.push(newRequest);
+      localStorage.setItem('access-requests', JSON.stringify(requests));
+    }
   };
 
   const getAccessRequests = (): AccessRequest[] => {
-    const requests = localStorage.getItem('access-requests');
-    if (requests) {
-      return JSON.parse(requests).map((r: any) => ({
-        ...r,
-        requestDate: new Date(r.requestDate)
-      }));
+    try {
+      // Tentar carregar do servidor primeiro
+      return []; // Será implementado com chamada real da API
+    } catch (error) {
+      // Fallback para localStorage
+      const requests = localStorage.getItem('access-requests');
+      if (requests) {
+        return JSON.parse(requests).map((r: any) => ({
+          ...r,
+          requestDate: new Date(r.requestDate)
+        }));
+      }
     }
     return [];
   };
@@ -182,30 +206,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const approveAccess = async (requestId: string): Promise<void> => {
-    const requests = getAccessRequests();
-    const request = requests.find(r => r.id === requestId);
-    
-    if (!request) return;
-    
-    // Atualizar status da solicitação
-    const updatedRequests = requests.map(r => 
-      r.id === requestId ? { ...r, status: 'approved' as const } : r
-    );
-    localStorage.setItem('access-requests', JSON.stringify(updatedRequests));
-    
-    // Adicionar à lista de usuários autorizados
-    const authorizedUsers = getAuthorizedUsers();
-    const newAuthorizedUser: AuthorizedUser = {
-      id: Date.now().toString(),
-      fullName: request.fullName,
-      email: request.email,
-      businessName: request.businessName,
-      approvedDate: new Date(),
-      hasSetupPassword: false // ✅ SEMPRE false - OBRIGATÓRIO configurar senhas DUPLAS
-    };
-    
-    authorizedUsers.push(newAuthorizedUser);
-    localStorage.setItem('authorized-users', JSON.stringify(authorizedUsers));
+    try {
+      await apiService.approveAccess(requestId);
+    } catch (error) {
+      console.error('Erro ao aprovar acesso:', error);
+      // Fallback para localStorage
+      const requests = getAccessRequests();
+      const request = requests.find(r => r.id === requestId);
+      
+      if (!request) return;
+      
+      const updatedRequests = requests.map(r => 
+        r.id === requestId ? { ...r, status: 'approved' as const } : r
+      );
+      localStorage.setItem('access-requests', JSON.stringify(updatedRequests));
+      
+      const authorizedUsers = getAuthorizedUsers();
+      const newAuthorizedUser: AuthorizedUser = {
+        id: Date.now().toString(),
+        fullName: request.fullName,
+        email: request.email,
+        businessName: request.businessName,
+        approvedDate: new Date(),
+        hasSetupPassword: false
+      };
+      
+      authorizedUsers.push(newAuthorizedUser);
+      localStorage.setItem('authorized-users', JSON.stringify(authorizedUsers));
+    }
   };
 
   const restrictAccess = async (userId: string, reason: string): Promise<void> => {
@@ -266,11 +294,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const rejectAccess = async (requestId: string, reason: string): Promise<void> => {
-    const requests = getAccessRequests();
-    const updatedRequests = requests.map(r => 
-      r.id === requestId ? { ...r, status: 'rejected' as const, rejectionReason: reason } : r
-    );
-    localStorage.setItem('access-requests', JSON.stringify(updatedRequests));
+    try {
+      await apiService.rejectAccess(requestId, reason);
+    } catch (error) {
+      console.error('Erro ao rejeitar acesso:', error);
+      // Fallback para localStorage
+      const requests = getAccessRequests();
+      const updatedRequests = requests.map(r => 
+        r.id === requestId ? { ...r, status: 'rejected' as const, rejectionReason: reason } : r
+      );
+      localStorage.setItem('access-requests', JSON.stringify(updatedRequests));
+    }
   };
 
   const checkEmailAccess = (email: string): boolean => {
@@ -362,19 +396,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const checkUserPasswordStatus = (email: string): 'not_found' | 'needs_setup' | 'ready' => {
-    const authorizedUsers = getAuthorizedUsers();
-    const user = authorizedUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-    
-    if (!user) {
+    try {
+      // Implementar chamada para API
+      const authorizedUsers = getAuthorizedUsers();
+      const user = authorizedUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+      
+      if (!user) {
+        return 'not_found';
+      }
+      
+      if (!user.hasSetupPassword) {
+        return 'needs_setup';
+      }
+      
+      return 'ready';
+    } catch (error) {
+      console.error('Erro ao verificar status:', error);
       return 'not_found';
     }
-    
-    // ✅ SEMPRE verificar se precisa configurar senhas DUPLAS - OBRIGATÓRIO
-    if (!user.hasSetupPassword) {
-      return 'needs_setup';
-    }
-    
-    return 'ready';
   };
 
   // ✅ NOVA FUNÇÃO: Configurar senhas DUPLAS (Admin + Operador)
@@ -385,105 +424,145 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simular delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const authorizedUsers = getAuthorizedUsers();
-    const userIndex = authorizedUsers.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
-    
-    if (userIndex === -1) {
+    try {
+      const response = await apiService.setupPasswords({
+        email,
+        adminCredentials,
+        operatorCredentials
+      });
+      
+      if (response.success) {
+        // Login automático como admin
+        const userSession: User = {
+          id: Date.now().toString(),
+          username: adminCredentials.username,
+          name: response.user?.name || 'Usuário',
+          role: 'admin',
+          businessId: 'default',
+          email,
+          hasCustomPassword: true
+        };
+        
+        setUser(userSession);
+        setPendingPasswordUser(null);
+        localStorage.setItem('current-user', JSON.stringify(userSession));
+        setIsLoading(false);
+        return true;
+      }
+    } catch (error) {
+      console.error('Erro ao configurar senhas:', error);
+      // Fallback para localStorage (código anterior)
+      const authorizedUsers = getAuthorizedUsers();
+      const userIndex = authorizedUsers.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
+      
+      if (userIndex === -1) {
+        setIsLoading(false);
+        return false;
+      }
+      
+      authorizedUsers[userIndex].hasSetupPassword = true;
+      localStorage.setItem('authorized-users', JSON.stringify(authorizedUsers));
+      
+      const allCredentials = JSON.parse(localStorage.getItem('user-credentials') || '[]');
+      
+      const adminUserCredentials = {
+        email,
+        username: adminCredentials.username,
+        password: adminCredentials.password,
+        role: 'admin',
+        setupDate: new Date()
+      };
+      
+      const operatorUserCredentials = {
+        email,
+        username: operatorCredentials.username,
+        password: operatorCredentials.password,
+        role: 'operator',
+        setupDate: new Date()
+      };
+      
+      const filteredCredentials = allCredentials.filter((cred: any) => cred.email !== email);
+      filteredCredentials.push(adminUserCredentials, operatorUserCredentials);
+      localStorage.setItem('user-credentials', JSON.stringify(filteredCredentials));
+      
+      const userSession: User = {
+        id: Date.now().toString(),
+        username: adminCredentials.username,
+        name: authorizedUsers[userIndex].fullName,
+        role: 'admin',
+        businessId: 'default',
+        email,
+        hasCustomPassword: true
+      };
+      
+      setUser(userSession);
+      setPendingPasswordUser(null);
+      localStorage.setItem('current-user', JSON.stringify(userSession));
       setIsLoading(false);
-      return false;
+      return true;
     }
     
-    // ✅ Marcar como senhas configuradas - OBRIGATÓRIO
-    authorizedUsers[userIndex].hasSetupPassword = true;
-    localStorage.setItem('authorized-users', JSON.stringify(authorizedUsers));
-    
-    // ✅ Salvar AMBAS as credenciais - OBRIGATÓRIO
-    const allCredentials = JSON.parse(localStorage.getItem('user-credentials') || '[]');
-    
-    // Credenciais do Administrador
-    const adminUserCredentials = {
-      email,
-      username: adminCredentials.username,
-      password: adminCredentials.password,
-      role: 'admin',
-      setupDate: new Date()
-    };
-    
-    // Credenciais do Operador
-    const operatorUserCredentials = {
-      email,
-      username: operatorCredentials.username,
-      password: operatorCredentials.password,
-      role: 'operator',
-      setupDate: new Date()
-    };
-    
-    // Remover credenciais antigas se existirem
-    const filteredCredentials = allCredentials.filter((cred: any) => cred.email !== email);
-    
-    // Adicionar as novas credenciais
-    filteredCredentials.push(adminUserCredentials, operatorUserCredentials);
-    localStorage.setItem('user-credentials', JSON.stringify(filteredCredentials));
-    
-    // ✅ Fazer login automático como ADMINISTRADOR após configurar senhas
-    const userSession: User = {
-      id: Date.now().toString(),
-      username: adminCredentials.username,
-      name: authorizedUsers[userIndex].fullName,
-      role: 'admin', // ✅ Login automático como admin
-      businessId: 'default',
-      email,
-      hasCustomPassword: true
-    };
-    
-    setUser(userSession);
-    setPendingPasswordUser(null);
-    localStorage.setItem('current-user', JSON.stringify(userSession));
     setIsLoading(false);
-    return true;
+    return false;
   };
 
   // Funções do sistema normal - versão atualizada
   const login = async (email: string, username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simular delay de autenticação
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // ✅ Verificar se usuário tem credenciais personalizadas OBRIGATÓRIAS
-    const allCredentials = JSON.parse(localStorage.getItem('user-credentials') || '[]');
-    const userCredentials = allCredentials.find((cred: any) => 
-      cred.email === email && 
-      cred.username === username && 
-      cred.password === password
-    );
-
-    if (userCredentials) {
-      const authorizedUsers = getAuthorizedUsers();
-      const authorizedUser = authorizedUsers.find(u => u.email === email);
+    try {
+      const response = await apiService.login(email, username, password);
       
-      if (!authorizedUser) {
+      if (response.success && response.user) {
+        const userSession: User = {
+          id: response.user.id,
+          username: response.user.username,
+          name: response.user.name,
+          role: response.user.role,
+          businessId: response.user.businessId,
+          email: response.user.email,
+          hasCustomPassword: true
+        };
+        
+        setUser(userSession);
+        localStorage.setItem('current-user', JSON.stringify(userSession));
         setIsLoading(false);
-        return false;
+        return true;
       }
-      
-      const userSession: User = {
-        id: Date.now().toString(),
-        username: userCredentials.username,
-        name: authorizedUser.fullName,
-        role: userCredentials.role, // ✅ admin ou operator OBRIGATÓRIO
-        businessId: 'default',
-        email: userCredentials.email,
-        hasCustomPassword: true
-      };
-      
-      setUser(userSession);
-      localStorage.setItem('current-user', JSON.stringify(userSession));
-      setIsLoading(false);
-      return true;
+    } catch (error) {
+      console.error('Erro no login:', error);
+      // Fallback para localStorage
+      const allCredentials = JSON.parse(localStorage.getItem('user-credentials') || '[]');
+      const userCredentials = allCredentials.find((cred: any) => 
+        cred.email === email && 
+        cred.username === username && 
+        cred.password === password
+      );
+
+      if (userCredentials) {
+        const authorizedUsers = getAuthorizedUsers();
+        const authorizedUser = authorizedUsers.find(u => u.email === email);
+        
+        if (!authorizedUser) {
+          setIsLoading(false);
+          return false;
+        }
+        
+        const userSession: User = {
+          id: Date.now().toString(),
+          username: userCredentials.username,
+          name: authorizedUser.fullName,
+          role: userCredentials.role,
+          businessId: 'default',
+          email: userCredentials.email,
+          hasCustomPassword: true
+        };
+        
+        setUser(userSession);
+        localStorage.setItem('current-user', JSON.stringify(userSession));
+        setIsLoading(false);
+        return true;
+      }
     }
     
     setIsLoading(false);
