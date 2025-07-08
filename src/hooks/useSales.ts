@@ -1,90 +1,73 @@
 import { useState, useEffect } from 'react';
 import { Sale } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { apiService } from '../services/apiService';
+import { useDataPersistence } from './useDataPersistence';
 
-const getStorageKey = (businessId: string) => `business-${businessId}-sales`;
+// Função para converter dados do servidor para formato local
+const parseSaleFromServer = (serverSale: any): Sale => ({
+  id: serverSale.id,
+  items: Array.isArray(serverSale.items) ? serverSale.items : [],
+  total: parseFloat(serverSale.total) || 0,
+  date: new Date(serverSale.created_at || serverSale.date || Date.now()),
+  paymentMethod: serverSale.payment_method || serverSale.paymentMethod || 'dinheiro'
+});
 
 export function useSales() {
   const { user } = useAuth();
+  const { loadData, saveData } = useDataPersistence();
   const [sales, setSales] = useState<Sale[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
     
     const loadSales = async () => {
       try {
-        const serverSales = await apiService.getSales();
+        setIsLoading(true);
+        console.log('💰 Carregando vendas...');
+        
+        const serverSales = await loadData('sales');
+        
         if (serverSales && serverSales.length > 0) {
-          const parsedSales = serverSales.map((s: any) => ({
-            ...s,
-            date: new Date(s.created_at || s.date),
-            items: s.items || []
-          }));
+          console.log(`✅ ${serverSales.length} vendas carregadas`);
+          const parsedSales = serverSales.map(parseSaleFromServer);
           setSales(parsedSales);
-          return;
+        } else {
+          console.log('💰 Nenhuma venda encontrada');
+          setSales([]);
         }
       } catch (error) {
-        console.error('Erro ao carregar vendas do servidor:', error);
-      }
-      
-      // Fallback para dados locais
-      const storageKey = getStorageKey(user.businessId);
-      const stored = localStorage.getItem(storageKey);
-      
-      if (stored) {
-        const parsedSales = JSON.parse(stored).map((s: any) => ({
-          ...s,
-          date: new Date(s.date),
-        }));
-        setSales(parsedSales);
+        console.error('❌ Erro ao carregar vendas:', error);
+        setSales([]);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     loadSales();
-  }, [user]);
-
-  const saveSales = async (updatedSales: Sale[]) => {
-    if (!user?.businessId) return;
-    
-    setSales(updatedSales);
-    
-    // Backup local
-    const storageKey = getStorageKey(user.businessId);
-    localStorage.setItem(storageKey, JSON.stringify(updatedSales));
-  };
+  }, [user, loadData]);
 
   const addSale = async (sale: Omit<Sale, 'id' | 'date'>) => {
     try {
-      const serverSale = await apiService.createSale(sale);
-      if (serverSale) {
-        const newSale: Sale = {
-          ...serverSale,
-          date: new Date(serverSale.created_at || serverSale.date),
-          items: serverSale.items || sale.items
-        };
-        const updatedSales = [...sales, newSale];
-        setSales(updatedSales);
-        
-        // Backup local
-        if (user?.businessId) {
-          const storageKey = getStorageKey(user.businessId);
-          localStorage.setItem(storageKey, JSON.stringify(updatedSales));
-        }
-        return;
-      }
+      const newSale: Sale = {
+        ...sale,
+        id: `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        date: new Date(),
+      };
+      
+      // Atualizar estado local imediatamente
+      const updatedSales = [...sales, newSale];
+      setSales(updatedSales);
+      
+      // Salvar com persistência offline
+      await saveData('sales', 'create', newSale, newSale.id);
+      
+      console.log('✅ Venda adicionada:', newSale.id, 'Total:', newSale.total);
+      return newSale;
     } catch (error) {
-      console.error('Erro ao criar venda no servidor:', error);
+      console.error('❌ Erro ao adicionar venda:', error);
+      throw error;
     }
-    
-    // Fallback para criação local
-    const newSale: Sale = {
-      ...sale,
-      id: Date.now().toString(),
-      date: new Date(),
-    };
-    const updatedSales = [...sales, newSale];
-    await saveSales(updatedSales);
   };
 
   const getSalesByDateRange = (startDate: Date, endDate: Date) => {
@@ -125,12 +108,50 @@ export function useSales() {
     );
   };
 
+  // Função para recarregar vendas do servidor
+  const refreshSales = async () => {
+    if (!user) return;
+    
+    try {
+      setIsLoading(true);
+      const serverSales = await loadData('sales');
+      
+      if (serverSales && serverSales.length > 0) {
+        const parsedSales = serverSales.map(parseSaleFromServer);
+        setSales(parsedSales);
+        console.log('🔄 Vendas recarregadas do servidor');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao recarregar vendas:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Estatísticas calculadas
+  const getStats = () => {
+    const today = new Date();
+    const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const thisYear = new Date(today.getFullYear(), 0, 1);
+
+    return {
+      dailyRevenue: getDailyRevenue(today),
+      monthlyRevenue: getMonthlyRevenue(today),
+      yearlyRevenue: getYearlyRevenue(today),
+      totalSales: sales.length,
+      averageSale: sales.length > 0 ? sales.reduce((sum, sale) => sum + sale.total, 0) / sales.length : 0
+    };
+  };
+
   return {
     sales,
+    isLoading,
     addSale,
     getSalesByDateRange,
     getDailyRevenue,
     getMonthlyRevenue,
     getYearlyRevenue,
+    refreshSales,
+    getStats,
   };
 }

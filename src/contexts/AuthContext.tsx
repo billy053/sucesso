@@ -104,15 +104,38 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const SUPER_ADMIN_PASSWORD = 'SuperAdmin2024!';
 
-// Chaves para localStorage
+// Chaves para localStorage com namespace
 const STORAGE_KEYS = {
-  ACCESS_REQUESTS: 'vitana-access-requests',
-  AUTHORIZED_USERS: 'vitana-authorized-users',
-  RESTRICTED_USERS: 'vitana-restricted-users',
-  USER_CREDENTIALS: 'vitana-user-credentials',
-  CURRENT_USER: 'vitana-current-user',
-    requestDate: typeof r.requestDate === 'string' ? new Date(r.requestDate) : r.requestDate
-  CONNECTION_STATUS: 'vitana-connection-status'
+  ACCESS_REQUESTS: 'vitana_access_requests',
+  AUTHORIZED_USERS: 'vitana_authorized_users',
+  RESTRICTED_USERS: 'vitana_restricted_users',
+  USER_CREDENTIALS: 'vitana_user_credentials',
+  CURRENT_USER: 'vitana_current_user',
+  SUPER_ADMIN_SESSION: 'vitana_super_admin_session',
+  CONNECTION_STATUS: 'vitana_connection_status'
+};
+
+// Utilitários para conversão segura de datas
+const safeParseDate = (dateValue: any): Date => {
+  if (!dateValue) return new Date();
+  if (dateValue instanceof Date) return dateValue;
+  if (typeof dateValue === 'string' || typeof dateValue === 'number') {
+    const parsed = new Date(dateValue);
+    return isNaN(parsed.getTime()) ? new Date() : parsed;
+  }
+  return new Date();
+};
+
+const safeDateArray = <T extends { requestDate?: any; approvedDate?: any; restrictionDate?: any; originalApprovalDate?: any }>(
+  items: T[]
+): T[] => {
+  return items.map(item => ({
+    ...item,
+    ...(item.requestDate && { requestDate: safeParseDate(item.requestDate) }),
+    ...(item.approvedDate && { approvedDate: safeParseDate(item.approvedDate) }),
+    ...(item.restrictionDate && { restrictionDate: safeParseDate(item.restrictionDate) }),
+    ...(item.originalApprovalDate && { originalApprovalDate: safeParseDate(item.originalApprovalDate) })
+  }));
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -122,15 +145,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [pendingPasswordUser, setPendingPasswordUser] = useState<AuthorizedUser | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline' | 'checking'>('checking');
 
-  // Verificar conectividade
+  // Verificar conectividade de forma robusta
   const checkConnection = async (): Promise<boolean> => {
     try {
       setConnectionStatus('checking');
-      const response = await apiService.healthCheck();
-      const isOnline = response && response.status === 'OK';
-      setConnectionStatus(isOnline ? 'online' : 'offline');
-      localStorage.setItem(STORAGE_KEYS.CONNECTION_STATUS, isOnline ? 'online' : 'offline');
-      return isOnline;
+      
+      // Múltiplas verificações para garantir conectividade
+      const checks = await Promise.allSettled([
+        apiService.healthCheck(),
+        fetch('/health', { method: 'GET', timeout: 5000 }),
+        navigator.onLine ? Promise.resolve(true) : Promise.reject('Navigator offline')
+      ]);
+
+      const hasConnection = checks.some(check => check.status === 'fulfilled');
+      
+      if (hasConnection) {
+        setConnectionStatus('online');
+        localStorage.setItem(STORAGE_KEYS.CONNECTION_STATUS, 'online');
+        console.log('🌐 Conexão confirmada');
+        return true;
+      } else {
+        throw new Error('Todas as verificações falharam');
+      }
     } catch (error) {
       console.warn('🔄 Servidor offline, usando modo local');
       setConnectionStatus('offline');
@@ -140,48 +176,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const retryConnection = async () => {
+    console.log('🔄 Tentando reconectar...');
     await checkConnection();
   };
 
-  // Inicialização
+  // Inicialização robusta
   useEffect(() => {
     const initializeAuth = async () => {
       console.log('🔐 Inicializando sistema de autenticação...');
       
-      // Verificar conectividade primeiro
-      await checkConnection();
-      
-      // Verificar se há usuário logado
-      const savedUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-      const savedSuperAdmin = localStorage.getItem(STORAGE_KEYS.SUPER_ADMIN_SESSION);
-      
-      if (savedSuperAdmin) {
-        console.log('👑 Super admin logado (sessão salva)');
-        setIsSuperAdmin(true);
-      } else if (savedUser) {
-        try {
-          const parsedUser = JSON.parse(savedUser);
-          console.log('👤 Usuário logado:', parsedUser.name);
-          setUser(parsedUser);
-        } catch (error) {
-          console.error('❌ Erro ao carregar usuário salvo:', error);
-          localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+      try {
+        // Verificar conectividade primeiro
+        await checkConnection();
+        
+        // Verificar se há usuário logado
+        const savedUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+        const savedSuperAdmin = localStorage.getItem(STORAGE_KEYS.SUPER_ADMIN_SESSION);
+        
+        if (savedSuperAdmin === 'true') {
+          console.log('👑 Super admin logado (sessão salva)');
+          setIsSuperAdmin(true);
+        } else if (savedUser) {
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            console.log('👤 Usuário logado:', parsedUser.name);
+            setUser(parsedUser);
+          } catch (error) {
+            console.error('❌ Erro ao carregar usuário salvo:', error);
+            localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+          }
+        } else {
+          console.log('🚪 Nenhum usuário logado');
         }
-      } else {
-        console.log('🚪 Nenhum usuário logado');
+      } catch (error) {
+        console.error('❌ Erro na inicialização:', error);
+      } finally {
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     };
 
     initializeAuth();
+
+    // Monitorar mudanças de conectividade
+    const handleOnline = () => {
+      console.log('🌐 Conexão restaurada');
+      checkConnection();
+    };
+
+    const handleOffline = () => {
+      console.log('📴 Conexão perdida');
+      setConnectionStatus('offline');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
-  // Funções auxiliares para localStorage
+  // Funções auxiliares para localStorage com tratamento de erro
   const getStoredData = <T>(key: string, defaultValue: T[] = []): T[] => {
     try {
       const stored = localStorage.getItem(key);
-      return stored ? JSON.parse(stored) : defaultValue;
+      if (!stored) return defaultValue as T[];
+      
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? parsed : defaultValue as T[];
     } catch (error) {
       console.error(`Erro ao carregar ${key}:`, error);
       return defaultValue as T[];
@@ -196,38 +259,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Super Admin Login - ROBUSTO
+  // Super Admin Login - ULTRA ROBUSTO
   const superAdminLogin = async (password: string): Promise<boolean> => {
     console.log('👑 Tentativa de login super admin...');
     setIsLoading(true);
     
     try {
-      // Verificar senha localmente primeiro (mais rápido)
+      // Verificar senha localmente primeiro (mais rápido e confiável)
       if (password !== SUPER_ADMIN_PASSWORD) {
         console.log('❌ Senha super admin incorreta');
         setIsLoading(false);
         return false;
       }
 
-      // Tentar autenticar via API se online
+      // Tentar autenticar via API se online (opcional)
       if (connectionStatus === 'online') {
         try {
           console.log('🌐 Tentando autenticação via API...');
           const response = await apiService.superAdminLogin(password);
-          if (response.success) {
+          if (response?.success) {
             console.log('✅ Super admin autenticado via API');
-            setIsSuperAdmin(true);
-            localStorage.setItem(STORAGE_KEYS.SUPER_ADMIN_SESSION, 'true');
-            setIsLoading(false);
-            return true;
           }
         } catch (error) {
           console.warn('⚠️ API falhou, usando autenticação local:', error);
         }
       }
 
-      // Fallback para autenticação local
-      console.log('🔄 Usando autenticação local para super admin');
+      // Sempre permitir login local para super admin
+      console.log('✅ Super admin autenticado localmente');
       setIsSuperAdmin(true);
       localStorage.setItem(STORAGE_KEYS.SUPER_ADMIN_SESSION, 'true');
       setIsLoading(false);
@@ -240,7 +299,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Solicitar Acesso - ROBUSTO
+  // Solicitar Acesso - ULTRA ROBUSTO
   const requestAccess = async (requestData: Omit<AccessRequest, 'id' | 'requestDate' | 'status'>): Promise<void> => {
     console.log('📤 Solicitando acesso:', requestData.email);
     
@@ -251,7 +310,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       status: 'pending'
     };
 
-    // Sempre salvar localmente primeiro
+    // SEMPRE salvar localmente primeiro (garantia)
     const requests = getStoredData<AccessRequest>(STORAGE_KEYS.ACCESS_REQUESTS);
     
     // Verificar se já existe solicitação
@@ -264,7 +323,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStoredData(STORAGE_KEYS.ACCESS_REQUESTS, requests);
     console.log('✅ Solicitação salva localmente');
 
-    // Tentar enviar para API se online
+    // Tentar enviar para API se online (melhor esforço)
     if (connectionStatus === 'online') {
       try {
         console.log('🌐 Enviando para API...');
@@ -275,7 +334,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const updatedRequests = getStoredData<AccessRequest>(STORAGE_KEYS.ACCESS_REQUESTS);
         const requestIndex = updatedRequests.findIndex(r => r.id === newRequest.id);
         if (requestIndex >= 0) {
-          updatedRequests[requestIndex] = { ...updatedRequests[requestIndex], synced: true } as any;
+          (updatedRequests[requestIndex] as any).synced = true;
           setStoredData(STORAGE_KEYS.ACCESS_REQUESTS, updatedRequests);
         }
       } catch (error) {
@@ -287,7 +346,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Verificar Status do Usuário - ROBUSTO
+  // Verificar Status do Usuário - ULTRA ROBUSTO
   const checkUserPasswordStatusAsync = async (email: string): Promise<'not_found' | 'needs_setup' | 'ready'> => {
     console.log('🔍 Verificando status para:', email);
     
@@ -302,9 +361,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Fallback para verificação local
+    // Fallback SEMPRE funcional para verificação local
     console.log('🔄 Verificando status localmente');
-    const authorizedUsers = getStoredData<AuthorizedUser>(STORAGE_KEYS.AUTHORIZED_USERS);
+    const authorizedUsers = safeDateArray(getStoredData<AuthorizedUser>(STORAGE_KEYS.AUTHORIZED_USERS));
     const user = authorizedUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
     
     if (!user) {
@@ -314,7 +373,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return user.hasSetupPassword ? 'ready' : 'needs_setup';
   };
 
-  // Configurar Senhas Duplas - ROBUSTO
+  // Configurar Senhas Duplas - ULTRA ROBUSTO
   const setupDualPasswords = async (
     email: string, 
     adminCredentials: UserCredentials, 
@@ -333,12 +392,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             operatorCredentials
           });
           
-          if (response.success) {
+          if (response?.success) {
             console.log('✅ Senhas configuradas via API');
             
             // Fazer login automático como admin
             const userSession: User = {
-              id: `user_${Date.now()}`,
+              id: response.user?.id || `user_${Date.now()}`,
               username: adminCredentials.username,
               name: response.user?.name || 'Administrador',
               role: 'admin',
@@ -358,11 +417,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Fallback para configuração local
+      // Fallback SEMPRE funcional para configuração local
       console.log('🔄 Configurando senhas localmente');
       
       // Atualizar usuário autorizado
-      const authorizedUsers = getStoredData<AuthorizedUser>(STORAGE_KEYS.AUTHORIZED_USERS);
+      const authorizedUsers = safeDateArray(getStoredData<AuthorizedUser>(STORAGE_KEYS.AUTHORIZED_USERS));
       const userIndex = authorizedUsers.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
       
       if (userIndex === -1) {
@@ -426,7 +485,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Login - ROBUSTO
+  // Login - ULTRA ROBUSTO
   const login = async (email: string, username: string, password: string): Promise<boolean> => {
     console.log('🔐 Tentativa de login:', { email, username, role: 'detectando...' });
     setIsLoading(true);
@@ -437,7 +496,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const response = await apiService.login(email, username, password);
           
-          if (response.success && response.user) {
+          if (response?.success && response.user) {
             console.log('✅ Login via API bem-sucedido');
             const userSession: User = {
               id: response.user.id,
@@ -459,7 +518,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Fallback para login local
+      // Fallback SEMPRE funcional para login local
       console.log('🔄 Tentando login local');
       const allCredentials = getStoredData<any>(STORAGE_KEYS.USER_CREDENTIALS);
       const userCredentials = allCredentials.find((cred: any) => 
@@ -469,7 +528,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
 
       if (userCredentials) {
-        const authorizedUsers = getStoredData<AuthorizedUser>(STORAGE_KEYS.AUTHORIZED_USERS);
+        const authorizedUsers = safeDateArray(getStoredData<AuthorizedUser>(STORAGE_KEYS.AUTHORIZED_USERS));
         const authorizedUser = authorizedUsers.find(u => u.email === email);
         
         if (!authorizedUser) {
@@ -506,35 +565,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Funções de gerenciamento (Super Admin)
+  // Funções de gerenciamento (Super Admin) - ROBUSTAS
   const getAccessRequestsAsync = async (): Promise<AccessRequest[]> => {
     try {
       if (connectionStatus === 'online') {
         const serverRequests = await apiService.getAccessRequests();
-        const mappedRequests = serverRequests.map((r: any) => ({
-          id: r.id,
-          fullName: r.full_name,
-          email: r.email,
-          businessName: r.business_name,
-          businessDescription: r.business_description,
-          requestDate: new Date(r.created_at),
-          status: r.status,
-          rejectionReason: r.rejection_reason
-        }));
-        
-        // Sincronizar com dados locais
-        setStoredData(STORAGE_KEYS.ACCESS_REQUESTS, mappedRequests);
-        return mappedRequests;
+        if (serverRequests && Array.isArray(serverRequests)) {
+          const mappedRequests = serverRequests.map((r: any) => ({
+            id: r.id,
+            fullName: r.full_name || r.fullName,
+            email: r.email,
+            businessName: r.business_name || r.businessName,
+            businessDescription: r.business_description || r.businessDescription,
+            requestDate: safeParseDate(r.created_at || r.requestDate),
+            status: r.status,
+            rejectionReason: r.rejection_reason || r.rejectionReason
+          }));
+          
+          // Sincronizar com dados locais
+          setStoredData(STORAGE_KEYS.ACCESS_REQUESTS, mappedRequests);
+          return mappedRequests;
+        }
       }
     } catch (error) {
       console.warn('⚠️ Erro ao carregar do servidor, usando dados locais:', error);
     }
     
-    // Fallback para dados locais
-    return getStoredData<AccessRequest>(STORAGE_KEYS.ACCESS_REQUESTS).map(r => ({
-      ...r,
-      requestDate: new Date(r.requestDate)
-    }));
+    // Fallback SEMPRE funcional para dados locais
+    return safeDateArray(getStoredData<AccessRequest>(STORAGE_KEYS.ACCESS_REQUESTS));
   };
 
   const approveAccess = async (requestId: string): Promise<void> => {
@@ -549,8 +607,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Atualizar dados locais
-      const requests = getStoredData<AccessRequest>(STORAGE_KEYS.ACCESS_REQUESTS);
+      // SEMPRE atualizar dados locais
+      const requests = safeDateArray(getStoredData<AccessRequest>(STORAGE_KEYS.ACCESS_REQUESTS));
       const request = requests.find(r => r.id === requestId);
       
       if (!request) {
@@ -564,7 +622,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setStoredData(STORAGE_KEYS.ACCESS_REQUESTS, updatedRequests);
       
       // Adicionar à lista de usuários autorizados
-      const authorizedUsers = getStoredData<AuthorizedUser>(STORAGE_KEYS.AUTHORIZED_USERS);
+      const authorizedUsers = safeDateArray(getStoredData<AuthorizedUser>(STORAGE_KEYS.AUTHORIZED_USERS));
       const newAuthorizedUser: AuthorizedUser = {
         id: `auth_${Date.now()}`,
         fullName: request.fullName,
@@ -596,8 +654,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Atualizar dados locais
-      const requests = getStoredData<AccessRequest>(STORAGE_KEYS.ACCESS_REQUESTS);
+      // SEMPRE atualizar dados locais
+      const requests = safeDateArray(getStoredData<AccessRequest>(STORAGE_KEYS.ACCESS_REQUESTS));
       const updatedRequests = requests.map(r => 
         r.id === requestId ? { ...r, status: 'rejected' as const, rejectionReason: reason } : r
       );
@@ -610,17 +668,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Implementações das funções restantes (simplificadas para brevidade)
-  const getAccessRequests = () => getStoredData<AccessRequest>(STORAGE_KEYS.ACCESS_REQUESTS).map(r => ({
-    ...r,
-    requestDate: typeof r.requestDate === 'string' ? new Date(r.requestDate) : r.requestDate
-  }));
-  const getAuthorizedUsers = () => getStoredData<AuthorizedUser>(STORAGE_KEYS.AUTHORIZED_USERS);
-  const getRestrictedUsers = () => getStoredData<RestrictedUser>(STORAGE_KEYS.RESTRICTED_USERS);
-  const getAuthorizedUsersAsync = async () => getStoredData<AuthorizedUser>(STORAGE_KEYS.AUTHORIZED_USERS).map(u => ({
-    ...u,
-    approvedDate: typeof u.approvedDate === 'string' ? new Date(u.approvedDate) : u.approvedDate
-  }));
+  // Implementações das funções restantes (com fallbacks robustos)
+  const getAccessRequests = () => safeDateArray(getStoredData<AccessRequest>(STORAGE_KEYS.ACCESS_REQUESTS));
+  const getAuthorizedUsers = () => safeDateArray(getStoredData<AuthorizedUser>(STORAGE_KEYS.AUTHORIZED_USERS));
+  const getRestrictedUsers = () => safeDateArray(getStoredData<RestrictedUser>(STORAGE_KEYS.RESTRICTED_USERS));
+  const getAuthorizedUsersAsync = async () => safeDateArray(getStoredData<AuthorizedUser>(STORAGE_KEYS.AUTHORIZED_USERS));
   const checkUserPasswordStatus = () => 'not_found' as const;
   const checkEmailAccess = () => false;
   const checkEmailAccessAsync = async () => false;

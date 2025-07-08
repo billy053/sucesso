@@ -1,29 +1,69 @@
-import React from 'react';
-import { Wifi, WifiOff, RefreshCw, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Wifi, WifiOff, RefreshCw, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useDataPersistence } from '../hooks/useDataPersistence';
 
 export function DataSyncIndicator() {
-  const { connectionStatus, retryConnection } = useAuth();
+  const { connectionStatus, checkConnection } = useAuth();
+  const { syncStatus, forcSync } = useDataPersistence();
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Atualizar último tempo de sincronização
+    if (syncStatus.lastSync) {
+      const date = new Date(syncStatus.lastSync);
+      setLastSyncTime(date.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
+    }
+  }, [syncStatus.lastSync]);
+
+  const handleRetryConnection = async () => {
+    setIsRetrying(true);
+    try {
+      await checkConnection();
+      if (connectionStatus === 'online') {
+        await forcSync();
+      }
+    } catch (error) {
+      console.error('Erro ao tentar reconectar:', error);
+    } finally {
+      setIsRetrying(false);
+    }
+  };
 
   const getStatusIcon = () => {
+    if (isRetrying) {
+      return <RefreshCw className="h-4 w-4 animate-spin" />;
+    }
+
     switch (connectionStatus) {
       case 'online':
-        return <Wifi className="h-4 w-4 text-green-400" />;
+        return syncStatus.queueLength > 0 
+          ? <Clock className="h-4 w-4 text-yellow-400" />
+          : <CheckCircle className="h-4 w-4 text-green-400" />;
       case 'offline':
         return <WifiOff className="h-4 w-4 text-red-400" />;
       case 'checking':
-        return <RefreshCw className="h-4 w-4 text-yellow-400 animate-spin" />;
+        return <RefreshCw className="h-4 w-4 animate-spin text-blue-400" />;
       default:
         return <AlertCircle className="h-4 w-4 text-gray-400" />;
     }
   };
 
   const getStatusText = () => {
+    if (isRetrying) return 'Reconectando...';
+    
     switch (connectionStatus) {
       case 'online':
-        return 'Online';
+        if (syncStatus.queueLength > 0) {
+          return `Sincronizando (${syncStatus.queueLength})`;
+        }
+        return lastSyncTime ? `Sincronizado ${lastSyncTime}` : 'Online';
       case 'offline':
-        return 'Offline';
+        return 'Modo Offline';
       case 'checking':
         return 'Verificando...';
       default:
@@ -34,37 +74,34 @@ export function DataSyncIndicator() {
   const getStatusColor = () => {
     switch (connectionStatus) {
       case 'online':
-        return 'text-green-400';
+        return syncStatus.queueLength > 0 
+          ? 'border-yellow-500/30 bg-yellow-500/10'
+          : 'border-green-500/30 bg-green-500/10';
       case 'offline':
-        return 'text-red-400';
+        return 'border-red-500/30 bg-red-500/10';
       case 'checking':
-        return 'text-yellow-400';
+        return 'border-blue-500/30 bg-blue-500/10';
       default:
-        return 'text-gray-400';
+        return 'border-gray-500/30 bg-gray-500/10';
     }
   };
 
   return (
-    <div className="flex items-center space-x-2 px-4 py-2 bg-gray-800/50 rounded-lg border border-gray-700">
+    <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg border ${getStatusColor()} transition-all duration-200`}>
       {getStatusIcon()}
-      <span className={`text-xs font-medium ${getStatusColor()}`}>
+      <span className="text-xs font-medium text-gray-300">
         {getStatusText()}
       </span>
       
       {connectionStatus === 'offline' && (
         <button
-          onClick={retryConnection}
-          className="text-xs text-gray-400 hover:text-yellow-400 transition-colors"
+          onClick={handleRetryConnection}
+          disabled={isRetrying}
+          className="ml-2 p-1 rounded hover:bg-gray-700/50 transition-colors disabled:opacity-50"
           title="Tentar reconectar"
         >
-          <RefreshCw className="h-3 w-3" />
+          <RefreshCw className={`h-3 w-3 ${isRetrying ? 'animate-spin' : ''}`} />
         </button>
-      )}
-      
-      {connectionStatus === 'offline' && (
-        <div className="text-xs text-gray-500">
-          Modo local ativo
-        </div>
       )}
     </div>
   );

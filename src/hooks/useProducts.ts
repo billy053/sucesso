@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Product } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { apiService } from '../services/apiService';
-
-const getStorageKey = (businessId: string) => `business-${businessId}-products`;
+import { useDataPersistence } from './useDataPersistence';
 
 const initialProducts: Product[] = [
   {
@@ -78,157 +76,137 @@ const initialProducts: Product[] = [
   },
 ];
 
+// Função para converter dados do servidor para formato local
+const parseProductFromServer = (serverProduct: any): Product => ({
+  id: serverProduct.id,
+  name: serverProduct.name,
+  barcode: serverProduct.barcode || '',
+  category: serverProduct.category || '',
+  brand: serverProduct.brand || '',
+  price: parseFloat(serverProduct.price) || 0,
+  cost: parseFloat(serverProduct.cost) || 0,
+  stock: parseInt(serverProduct.stock) || 0,
+  minStock: parseInt(serverProduct.min_stock || serverProduct.minStock) || 0,
+  unit: serverProduct.unit || 'unidade',
+  createdAt: new Date(serverProduct.created_at || serverProduct.createdAt || Date.now()),
+  updatedAt: new Date(serverProduct.updated_at || serverProduct.updatedAt || Date.now()),
+});
+
 export function useProducts() {
   const { user } = useAuth();
+  const { loadData, saveData } = useDataPersistence();
   const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
     
     const loadProducts = async () => {
       try {
-        const serverProducts = await apiService.getProducts();
+        setIsLoading(true);
+        console.log('📦 Carregando produtos...');
+        
+        const serverProducts = await loadData('products');
+        
         if (serverProducts && serverProducts.length > 0) {
-          const parsedProducts = serverProducts.map((p: any) => ({
-            ...p,
-            createdAt: new Date(p.created_at || p.createdAt),
-            updatedAt: new Date(p.updated_at || p.updatedAt),
-          }));
+          console.log(`✅ ${serverProducts.length} produtos carregados do servidor`);
+          const parsedProducts = serverProducts.map(parseProductFromServer);
           setProducts(parsedProducts);
-          return;
+        } else {
+          console.log('📦 Usando produtos iniciais');
+          setProducts(initialProducts);
+          
+          // Salvar produtos iniciais
+          for (const product of initialProducts) {
+            await saveData('products', 'create', product, product.id);
+          }
         }
       } catch (error) {
-        console.error('Erro ao carregar produtos do servidor:', error);
-      }
-      
-      // Fallback para dados locais
-      const storageKey = getStorageKey(user.businessId);
-      const stored = localStorage.getItem(storageKey);
-      
-      if (stored) {
-        const parsedProducts = JSON.parse(stored).map((p: any) => ({
-          ...p,
-          createdAt: new Date(p.createdAt),
-          updatedAt: new Date(p.updatedAt),
-        }));
-        setProducts(parsedProducts);
-      } else {
-        // Usar produtos iniciais apenas se não houver dados
+        console.error('❌ Erro ao carregar produtos:', error);
+        // Fallback para produtos iniciais
         setProducts(initialProducts);
-        const stored = localStorage.getItem(storageKey);
-        localStorage.setItem(storageKey, JSON.stringify(initialProducts));
+      } finally {
+        setIsLoading(false);
       }
     };
 
     loadProducts();
-  }, [user]);
-
-  const saveProducts = async (updatedProducts: Product[]) => {
-    if (!user?.businessId) return;
-    
-    setProducts(updatedProducts);
-    
-    // Salvar localmente como backup
-    const storageKey = getStorageKey(user.businessId);
-    localStorage.setItem(storageKey, JSON.stringify(updatedProducts));
-  };
+  }, [user, loadData, saveData]);
 
   const addProduct = async (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      const serverProduct = await apiService.createProduct(product);
-      if (serverProduct) {
-        const newProduct: Product = {
-          ...serverProduct,
-          createdAt: new Date(serverProduct.created_at || serverProduct.createdAt),
-          updatedAt: new Date(serverProduct.updated_at || serverProduct.updatedAt),
-        };
-        const updatedProducts = [...products, newProduct];
-        setProducts(updatedProducts);
-        
-        // Backup local
-        if (user?.businessId) {
-          const storageKey = getStorageKey(user.businessId);
-          localStorage.setItem(storageKey, JSON.stringify(updatedProducts));
-        }
-        return;
-      }
+      const newProduct: Product = {
+        ...product,
+        id: `prod_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      // Atualizar estado local imediatamente
+      const updatedProducts = [...products, newProduct];
+      setProducts(updatedProducts);
+      
+      // Salvar com persistência offline
+      await saveData('products', 'create', newProduct, newProduct.id);
+      
+      console.log('✅ Produto adicionado:', newProduct.name);
     } catch (error) {
-      console.error('Erro ao criar produto no servidor:', error);
+      console.error('❌ Erro ao adicionar produto:', error);
+      throw error;
     }
-    
-    // Fallback para criação local
-    const newProduct: Product = {
-      ...product,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    const updatedProducts = [...products, newProduct];
-    await saveProducts(updatedProducts);
   };
 
   const updateProduct = async (id: string, updates: Partial<Product>) => {
     try {
-      const serverProduct = await apiService.updateProduct(id, updates);
-      if (serverProduct) {
-        const updatedProducts = products.map((product) =>
-          product.id === id
-            ? { 
-                ...serverProduct, 
-                createdAt: new Date(serverProduct.created_at || serverProduct.createdAt),
-                updatedAt: new Date(serverProduct.updated_at || serverProduct.updatedAt)
-              }
-            : product
-        );
-        setProducts(updatedProducts);
-        
-        // Backup local
-        if (user?.businessId) {
-          const storageKey = getStorageKey(user.businessId);
-          localStorage.setItem(storageKey, JSON.stringify(updatedProducts));
-        }
-        return;
+      const updatedProducts = products.map((product) =>
+        product.id === id
+          ? { ...product, ...updates, updatedAt: new Date() }
+          : product
+      );
+      
+      // Atualizar estado local imediatamente
+      setProducts(updatedProducts);
+      
+      // Encontrar produto atualizado
+      const updatedProduct = updatedProducts.find(p => p.id === id);
+      if (updatedProduct) {
+        // Salvar com persistência offline
+        await saveData('products', 'update', updatedProduct, id);
+        console.log('✅ Produto atualizado:', updatedProduct.name);
       }
     } catch (error) {
-      console.error('Erro ao atualizar produto no servidor:', error);
+      console.error('❌ Erro ao atualizar produto:', error);
+      throw error;
     }
-    
-    // Fallback para atualização local
-    const updatedProducts = products.map((product) =>
-      product.id === id
-        ? { ...product, ...updates, updatedAt: new Date() }
-        : product
-    );
-    await saveProducts(updatedProducts);
   };
 
   const deleteProduct = async (id: string) => {
     try {
-      await apiService.deleteProduct(id);
+      const productToDelete = products.find(p => p.id === id);
+      if (!productToDelete) {
+        throw new Error('Produto não encontrado');
+      }
+      
+      // Atualizar estado local imediatamente
       const updatedProducts = products.filter((product) => product.id !== id);
       setProducts(updatedProducts);
       
-      // Backup local
-      if (user?.businessId) {
-        const storageKey = getStorageKey(user.businessId);
-        localStorage.setItem(storageKey, JSON.stringify(updatedProducts));
-      }
+      // Salvar com persistência offline
+      await saveData('products', 'delete', { id }, id);
+      
+      console.log('✅ Produto deletado:', productToDelete.name);
     } catch (error) {
-      console.error('Erro ao deletar produto no servidor:', error);
-      // Fallback para deleção local
-      const updatedProducts = products.filter((product) => product.id !== id);
-      await saveProducts(updatedProducts);
+      console.error('❌ Erro ao deletar produto:', error);
+      throw error;
     }
   };
 
   const updateStock = async (productId: string, quantity: number) => {
     try {
-      await apiService.updateProductStock(productId, quantity);
       await updateProduct(productId, { stock: quantity });
     } catch (error) {
-      console.error('Erro ao atualizar estoque no servidor:', error);
-      // Fallback para atualização local
-      await updateProduct(productId, { stock: quantity });
+      console.error('❌ Erro ao atualizar estoque:', error);
+      throw error;
     }
   };
 
@@ -236,12 +214,34 @@ export function useProducts() {
     return products.find((product) => product.barcode === barcode);
   };
 
+  // Função para recarregar produtos do servidor
+  const refreshProducts = async () => {
+    if (!user) return;
+    
+    try {
+      setIsLoading(true);
+      const serverProducts = await loadData('products');
+      
+      if (serverProducts && serverProducts.length > 0) {
+        const parsedProducts = serverProducts.map(parseProductFromServer);
+        setProducts(parsedProducts);
+        console.log('🔄 Produtos recarregados do servidor');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao recarregar produtos:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return {
     products,
+    isLoading,
     addProduct,
     updateProduct,
     deleteProduct,
     updateStock,
     findByBarcode,
+    refreshProducts,
   };
 }
