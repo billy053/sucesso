@@ -105,7 +105,7 @@ export function useSettings() {
     
     setSettings(defaultSettings);
     const storageKey = getStorageKey(user.businessId);
-    await DatabaseService.saveData(storageKey, defaultSettings, user.id, user.businessId);
+    localStorage.setItem(storageKey, JSON.stringify(defaultSettings));
   };
 
   return {
