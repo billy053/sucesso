@@ -1,20 +1,18 @@
-import React, { useState } from 'react';
+import { } from 'react';
 import { 
   X, 
   Shield, 
   AlertTriangle, 
   CheckCircle, 
   FileText, 
-  Download, 
   ExternalLink,
   Info,
-  Clock,
   DollarSign,
   Settings,
   Key,
   Lock,
   Globe,
-  Building2,
+  Mail as MailIcon
   Phone,
   Mail
 } from 'lucide-react';

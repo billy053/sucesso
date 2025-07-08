@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Mail, Save, Settings, TestTube, CheckCircle, AlertCircle, Send, Loader2, Eye, EyeOff, ExternalLink } from 'lucide-react';
+import { X, Mail, Save, Settings, CheckCircle, AlertCircle, Send, Loader2, Eye, EyeOff } from 'lucide-react';
 
 interface EmailConfig {
   fromName: string;

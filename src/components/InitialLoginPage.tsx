@@ -13,7 +13,6 @@ import {
   Save,
   Coffee,
   Building2,
-  Key,
   UserPlus,
   Settings,
   Crown

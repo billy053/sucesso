@@ -8,7 +8,6 @@ import {
   CreditCard, 
   DollarSign, 
   Smartphone,
-  X,
   Package,
   AlertTriangle,
   CheckCircle,

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Cloud, Wifi, WifiOff, CheckCircle, AlertCircle, Loader2, ExternalLink, Key, Database, FolderSync as Sync, Info } from 'lucide-react';
+import { useState } from 'react';
+import { X, Cloud, Wifi, WifiOff, CheckCircle, Loader2, ExternalLink, Key, Database, FolderSync as Sync, Info } from 'lucide-react';
 import { useCloudSync } from '../hooks/useCloudSync';
 
 interface CloudSyncModalProps {
