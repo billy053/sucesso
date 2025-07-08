@@ -19,73 +19,55 @@ const PORT = process.env.PORT || 3001;
 // Configurar variáveis de ambiente padrão se não existirem
 if (!process.env.JWT_SECRET) {
   process.env.JWT_SECRET = 'vitana-jwt-secret-key-2024';
-  console.log('🔑 JWT_SECRET configurado com valor padrão');
 }
 
 if (!process.env.SUPER_ADMIN_PASSWORD) {
   process.env.SUPER_ADMIN_PASSWORD = 'SuperAdmin2024!';
-  console.log('🔐 SUPER_ADMIN_PASSWORD configurado com valor padrão');
 }
 
-// Configurar DATABASE_PATH para Railway
+// Configurar DATABASE_PATH
 if (!process.env.DATABASE_PATH) {
   process.env.DATABASE_PATH = path.join(__dirname, 'database', 'vitana.db');
-  console.log('💾 DATABASE_PATH configurado:', process.env.DATABASE_PATH);
 }
 
-console.log('🚀 Iniciando servidor...');
-console.log('📁 __dirname:', __dirname);
-console.log('🌍 NODE_ENV:', process.env.NODE_ENV);
-console.log('🔌 PORT:', PORT);
+console.log('🚀 Iniciando servidor na porta', PORT);
 
 // Health check PRIMEIRO - antes de qualquer middleware
 app.get('/health', (req, res) => {
-  console.log('❤️ Health check acessado');
   res.status(200).json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
     version: '2.0.0',
-    environment: process.env.NODE_ENV || 'production',
-    uptime: process.uptime(),
     port: PORT,
-    pid: process.pid,
-    database: 'SQLite',
-    memory: process.memoryUsage()
+    pid: process.pid
   });
 });
 
-// Health check alternativo
 app.get('/api/health', (req, res) => {
-  console.log('❤️ API Health check acessado');
   res.status(200).json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
     version: '2.0.0',
-    environment: process.env.NODE_ENV || 'production',
-    uptime: process.uptime(),
     port: PORT,
-    pid: process.pid,
-    database: 'SQLite',
-    memory: process.memoryUsage()
+    pid: process.pid
   });
 });
 
-// Middleware básico primeiro
+// Middleware básico
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// CORS simples para produção
+// CORS configurado
 app.use(cors({
-  origin: '*',
-  credentials: false,
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Business-ID']
 }));
 
 // Middleware de logging
 app.use((req, res, next) => {
-  // Log apenas em desenvolvimento e não para health checks
-  if (process.env.NODE_ENV === 'development' && !req.path.includes('/health')) {
+  if (!req.path.includes('/health')) {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   }
   next();
@@ -93,36 +75,39 @@ app.use((req, res, next) => {
 
 // Servir arquivos estáticos do front-end
 const staticPath = path.join(__dirname, '../dist');
-console.log('📂 Servindo arquivos estáticos de:', staticPath);
 app.use(express.static(staticPath));
 
-// Importar e usar rotas apenas se necessário
-try {
-  console.log('📋 Carregando rotas...');
-  
-  // Importar rotas dinamicamente para evitar erros de inicialização
-  const authRoutes = await import('./routes/auth.js');
-  const businessRoutes = await import('./routes/business.js');
-  const productRoutes = await import('./routes/products.js');
-  const salesRoutes = await import('./routes/sales.js');
-  const stockRoutes = await import('./routes/stock.js');
-  const reportsRoutes = await import('./routes/reports.js');
-  const nfceRoutes = await import('./routes/nfce.js');
+// Importar e usar rotas
+let routesLoaded = false;
 
-  // Rotas da API
-  app.use('/api/auth', authRoutes.default);
-  app.use('/api/business', businessRoutes.default);
-  app.use('/api/products', productRoutes.default);
-  app.use('/api/sales', salesRoutes.default);
-  app.use('/api/stock', stockRoutes.default);
-  app.use('/api/reports', reportsRoutes.default);
-  app.use('/api/nfce', nfceRoutes.default);
-  
-  console.log('✅ Rotas carregadas com sucesso');
-} catch (error) {
-  console.error('❌ Erro ao carregar rotas:', error);
-  // Continuar mesmo com erro nas rotas para que o health check funcione
-}
+const loadRoutes = async () => {
+  try {
+    console.log('📋 Carregando rotas...');
+    
+    const authRoutes = await import('./routes/auth.js');
+    const businessRoutes = await import('./routes/business.js');
+    const productRoutes = await import('./routes/products.js');
+    const salesRoutes = await import('./routes/sales.js');
+    const stockRoutes = await import('./routes/stock.js');
+    const reportsRoutes = await import('./routes/reports.js');
+    const nfceRoutes = await import('./routes/nfce.js');
+
+    // Rotas da API
+    app.use('/api/auth', authRoutes.default);
+    app.use('/api/business', businessRoutes.default);
+    app.use('/api/products', productRoutes.default);
+    app.use('/api/sales', salesRoutes.default);
+    app.use('/api/stock', stockRoutes.default);
+    app.use('/api/reports', reportsRoutes.default);
+    app.use('/api/nfce', nfceRoutes.default);
+    
+    console.log('✅ Rotas carregadas com sucesso');
+    routesLoaded = true;
+  } catch (error) {
+    console.error('❌ Erro ao carregar rotas:', error);
+    // Continuar mesmo com erro nas rotas
+  }
+};
 
 // Rota catch-all para SPA (deve vir por último)
 app.get('*', (req, res) => {
@@ -137,9 +122,7 @@ app.get('*', (req, res) => {
 
 // Middleware de tratamento de erros
 app.use((err, req, res, next) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.error('❌ Erro no servidor:', err);
-  }
+  console.error('❌ Erro no servidor:', err);
   
   if (err.type === 'entity.parse.failed') {
     return res.status(400).json({ error: 'JSON inválido' });
@@ -152,92 +135,57 @@ app.use((err, req, res, next) => {
 });
 
 // Inicializar servidor
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log('🎉 SERVIDOR INICIADO COM SUCESSO!');
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`🌐 Frontend: http://localhost:${PORT}`);
   console.log(`🔌 API: http://localhost:${PORT}/api`);
   console.log(`📊 Health: http://localhost:${PORT}/health`);
-  console.log(`🔒 Ambiente: ${process.env.NODE_ENV || 'production'}`);
-  console.log(`⏰ Uptime: ${process.uptime()}s`);
   
-  // Inicializar banco após servidor estar rodando
+  // Carregar rotas após servidor estar rodando
+  await loadRoutes();
+  
+  // Inicializar banco após rotas carregadas
   setTimeout(async () => {
     try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔧 Inicializando banco de dados...');
-      }
+      console.log('🔧 Inicializando banco de dados...');
       const { default: initDatabase } = await import('./scripts/init-database.js');
       await initDatabase();
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('✅ Banco de dados inicializado com sucesso');
-      }
-      
-      // Verificar se dados foram criados
-      const database = await import('./database/connection.js');
-      await database.default.connect();
-      
-      const userCount = await database.default.get('SELECT COUNT(*) as count FROM users');
-      const productCount = await database.default.get('SELECT COUNT(*) as count FROM products');
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('📊 Estatísticas do banco:');
-        console.log(`   👥 Usuários: ${userCount.count}`);
-        console.log(`   📦 Produtos: ${productCount.count}`);
-      }
-      
-      await database.default.close();
+      console.log('✅ Banco de dados inicializado');
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('⚠️ Erro ao inicializar banco:', error.message);
-        console.warn('💡 O banco será criado automaticamente quando necessário');
-      }
+      console.warn('⚠️ Erro ao inicializar banco:', error.message);
     }
-  }, 2000); // Aumentar delay para garantir que o servidor esteja totalmente pronto
+  }, 1000);
 });
-
-// Função para inicializar banco sob demanda
-let dbInitialized = false;
-export const ensureDatabase = async () => {
-  if (dbInitialized) return;
-  
-  try {
-    const { default: initDatabase } = await import('./scripts/init-database.js');
-    await initDatabase();
-    dbInitialized = true;
-    console.log('✅ Banco inicializado sob demanda');
-  } catch (error) {
-    console.warn('⚠️ Falha na inicialização do banco:', error.message);
-  }
-};
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('🛑 Recebido SIGTERM, encerrando servidor...');
-  process.exit(0);
+  console.log('🛑 Encerrando servidor...');
+  server.close(() => {
+    process.exit(0);
+  });
 });
 
 process.on('SIGINT', () => {
-  console.log('🛑 Recebido SIGINT, encerrando servidor...');
-  process.exit(0);
+  console.log('🛑 Encerrando servidor...');
+  server.close(() => {
+    process.exit(0);
+  });
 });
 
 // Tratamento de erros não capturados
 process.on('uncaughtException', (error) => {
   console.error('❌ Erro não capturado:', error);
-  // Não sair imediatamente em produção
   if (process.env.NODE_ENV !== 'production') {
     process.exit(1);
   }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Promise rejeitada não tratada:', reason);
-  // Não sair imediatamente em produção
+  console.error('❌ Promise rejeitada:', reason);
   if (process.env.NODE_ENV !== 'production') {
     process.exit(1);
   }
 });
 
-console.log('📋 Servidor configurado, aguardando conexões...');
+console.log('📋 Servidor configurado e aguardando conexões...');

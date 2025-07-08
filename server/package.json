@@ -4,7 +4,7 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "dev": "node --watch server.js",
+    "dev": "node --watch --inspect=0.0.0.0:9229 server.js",
     "start": "node server.js"
   },
   "dependencies": {

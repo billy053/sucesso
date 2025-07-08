@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "npx vite",
     "dev:server": "cd server && npm run dev",
-    "dev:full": "concurrently --kill-others \"npm run dev:server\" \"npm run dev\"",
+    "dev:full": "concurrently --kill-others \"npm run dev:server\" \"sleep 3 && npm run dev\"",
     "build": "npx tsc --noEmit && npx vite build",
     "build:prod": "npx tsc --noEmit && npx vite build --mode production",
     "build:railway": "npx tsc --noEmit && npx vite build --mode production",
@@ -16,7 +16,9 @@
     "typecheck": "npx tsc --noEmit",
     "postbuild": "echo 'Build completed successfully'",
     "railway:build": "npm run build:prod",
-    "railway:start": "npm start"
+    "railway:start": "npm start",
+    "server:start": "cd server && node server.js",
+    "server:dev": "cd server && npm run dev"
   },
   "dependencies": {
     "@emailjs/browser": "^4.3.3",
