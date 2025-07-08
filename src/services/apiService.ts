@@ -6,12 +6,28 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || (
 
 class ApiService {
   private token: string | null = null;
+  private isOnline: boolean = navigator.onLine;
+  private retryCount: number = 0;
+  private maxRetries: number = 3;
 
   constructor() {
     this.token = localStorage.getItem('auth-token');
     
+    // Monitorar status de conexão
+    window.addEventListener('online', () => {
+      this.isOnline = true;
+      this.retryCount = 0;
+      console.log('🌐 Conexão restaurada');
+    });
+    
+    window.addEventListener('offline', () => {
+      this.isOnline = false;
+      console.log('📴 Conexão perdida');
+    });
+    
     if (process.env.NODE_ENV === 'development') {
       console.log('🔗 API Service inicializado:', API_BASE_URL);
+      console.log('🌐 Status inicial:', this.isOnline ? 'Online' : 'Offline');
     }
   }
 
@@ -28,6 +44,11 @@ class ApiService {
   private async request(endpoint: string, options: RequestInit = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
     
+    // Se offline, falhar imediatamente
+    if (!this.isOnline) {
+      throw new Error('NETWORK_ERROR');
+    }
+    
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(options.headers as Record<string, string> || {}),
@@ -37,28 +58,38 @@ class ApiService {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
+    const requestOptions: RequestInit = {
+      ...options,
+      headers,
+      timeout: 10000, // 10 segundos
+    };
+
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
       const response = await fetch(url, {
-        ...options,
-        headers,
+        ...requestOptions,
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
+      this.retryCount = 0; // Reset retry count on success
 
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}`;
         
         try {
-          // First try to parse as JSON
           const errorData = await response.json();
           errorMessage = errorData.error || errorData.message || errorMessage;
         } catch {
-          // If JSON parsing fails, try to read as text
           try {
             const errorText = await response.text();
             if (errorText.trim()) {
               errorMessage = errorText;
             }
           } catch {
-            // If both fail, keep the HTTP status message
+            // Keep HTTP status message
           }
         }
         
@@ -67,28 +98,87 @@ class ApiService {
 
       return await response.json();
     } catch (error) {
+      // Incrementar contador de tentativas
+      this.retryCount++;
       
-      // Se for erro de rede, tentar fallback local
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('NETWORK_ERROR');
+      if (error instanceof Error) {
+        // Erros de rede ou timeout
+        if (error.name === 'AbortError' || 
+            error.message.includes('fetch') || 
+            error.message.includes('network') ||
+            error.message.includes('timeout')) {
+          
+          console.warn(`🔄 Tentativa ${this.retryCount}/${this.maxRetries} falhou para ${endpoint}`);
+          
+          // Se ainda há tentativas, tentar novamente após delay
+          if (this.retryCount < this.maxRetries) {
+            const delay = Math.min(1000 * Math.pow(2, this.retryCount - 1), 5000);
+            console.log(`⏳ Tentando novamente em ${delay}ms...`);
+            
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return this.request(endpoint, options);
+          }
+          
+          // Esgotar tentativas
+          this.isOnline = false;
+          throw new Error('NETWORK_ERROR');
+        }
+        
+        throw error;
       }
       
-      throw error;
+      throw new Error('NETWORK_ERROR');
     }
   }
 
-  // Métodos de autenticação
-  async superAdminLogin(password: string) {
-    const response = await this.request('/auth/super-admin', {
-      method: 'POST',
-      body: JSON.stringify({ password }),
-    });
-    
-    if (response.token) {
-      this.setToken(response.token);
+  // Health check robusto
+  async healthCheck() {
+    try {
+      const response = await this.request('/health');
+      this.isOnline = true;
+      return response;
+    } catch (error) {
+      this.isOnline = false;
+      
+      // Tentar endpoint alternativo
+      try {
+        const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`, {
+          method: 'GET',
+          timeout: 5000
+        });
+        
+        if (response.ok) {
+          this.isOnline = true;
+          return await response.json();
+        }
+      } catch (altError) {
+        console.warn('🔄 Endpoint alternativo também falhou');
+      }
+      
+      return { status: 'offline', timestamp: new Date().toISOString() };
     }
-    
-    return response;
+  }
+
+  // Métodos de autenticação com retry automático
+  async superAdminLogin(password: string) {
+    try {
+      const response = await this.request('/auth/super-admin', {
+        method: 'POST',
+        body: JSON.stringify({ password }),
+      });
+      
+      if (response.token) {
+        this.setToken(response.token);
+      }
+      
+      return response;
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Super admin login offline - usando validação local');
+        throw error;
+      }
+      throw error;
+    }
   }
 
   async requestAccess(data: {
@@ -97,13 +187,21 @@ class ApiService {
     businessName: string;
     businessDescription: string;
   }) {
-    console.log('🌐 Enviando para:', `${API_BASE_URL}/auth/request-access`);
-    console.log('📦 Dados:', data);
-    
-    return this.request('/auth/request-access', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    try {
+      console.log('🌐 Enviando solicitação para:', `${API_BASE_URL}/auth/request-access`);
+      console.log('📦 Dados:', data);
+      
+      return await this.request('/auth/request-access', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Request access offline - salvando localmente');
+        throw error;
+      }
+      throw error;
+    }
   }
 
   async setupPasswords(data: {
@@ -111,23 +209,39 @@ class ApiService {
     adminCredentials: { username: string; password: string };
     operatorCredentials: { username: string; password: string };
   }) {
-    return this.request('/auth/setup-passwords', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    try {
+      return await this.request('/auth/setup-passwords', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Setup passwords offline - configurando localmente');
+        throw error;
+      }
+      throw error;
+    }
   }
 
   async login(email: string, username: string, password: string) {
-    const response = await this.request('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, username, password }),
-    });
-    
-    if (response.token) {
-      this.setToken(response.token);
+    try {
+      const response = await this.request('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, username, password }),
+      });
+      
+      if (response.token) {
+        this.setToken(response.token);
+      }
+      
+      return response;
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Login offline - usando autenticação local');
+        throw error;
+      }
+      throw error;
     }
-    
-    return response;
   }
 
   async checkUserStatus(email: string) {
@@ -137,13 +251,23 @@ class ApiService {
         body: JSON.stringify({ email }),
       });
     } catch (error) {
-      console.error('Erro ao verificar status do usuário:', error);
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Check status offline - usando dados locais');
+        throw error;
+      }
       throw error;
     }
   }
 
   async verifyToken() {
-    return this.request('/auth/verify');
+    try {
+      return await this.request('/auth/verify');
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        throw error;
+      }
+      throw error;
+    }
   }
 
   async getAccessRequests() {
@@ -151,35 +275,50 @@ class ApiService {
       return await this.request('/auth/requests');
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        // Fallback para dados locais
-        const requests = localStorage.getItem('access-requests');
-        return requests ? JSON.parse(requests) : [];
+        console.warn('🔄 Get requests offline - usando dados locais');
+        throw error;
       }
       throw error;
     }
   }
 
   async approveAccess(userId: string) {
-    return this.request(`/auth/approve/${userId}`, {
-      method: 'POST',
-    });
+    try {
+      return await this.request(`/auth/approve/${userId}`, {
+        method: 'POST',
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Approve access offline - salvando localmente');
+        throw error;
+      }
+      throw error;
+    }
   }
 
   async rejectAccess(userId: string, reason: string) {
-    return this.request(`/auth/reject/${userId}`, {
-      method: 'POST',
-      body: JSON.stringify({ reason }),
-    });
+    try {
+      return await this.request(`/auth/reject/${userId}`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        console.warn('🔄 Reject access offline - salvando localmente');
+        throw error;
+      }
+      throw error;
+    }
   }
 
-  // Métodos de produtos
+  // Métodos de produtos com fallback
   async getProducts() {
     try {
       return await this.request('/products');
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        const products = localStorage.getItem('business-default-products');
-        return products ? JSON.parse(products) : [];
+        console.warn('🔄 Get products offline - usando dados locais');
+        throw error;
       }
       throw error;
     }
@@ -190,16 +329,8 @@ class ApiService {
       return await this.request(`/products/barcode/${barcode}`);
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        // Fallback para busca local
-        const products = localStorage.getItem('business-default-products');
-        if (products) {
-          const parsedProducts = JSON.parse(products);
-          const product = parsedProducts.find((p: any) => p.barcode === barcode);
-          if (product) {
-            return product;
-          }
-        }
-        throw new Error('Produto não encontrado');
+        console.warn('🔄 Get product by barcode offline - usando dados locais');
+        throw error;
       }
       throw error;
     }
@@ -213,7 +344,8 @@ class ApiService {
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        return null; // Será tratado no hook
+        console.warn('🔄 Create product offline - salvando localmente');
+        throw error;
       }
       throw error;
     }
@@ -227,7 +359,8 @@ class ApiService {
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        return null;
+        console.warn('🔄 Update product offline - salvando localmente');
+        throw error;
       }
       throw error;
     }
@@ -240,7 +373,8 @@ class ApiService {
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        return { success: true };
+        console.warn('🔄 Delete product offline - salvando localmente');
+        throw error;
       }
       throw error;
     }
@@ -254,7 +388,8 @@ class ApiService {
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        return { success: true };
+        console.warn('🔄 Update stock offline - salvando localmente');
+        throw error;
       }
       throw error;
     }
@@ -273,8 +408,8 @@ class ApiService {
       return await this.request(`/sales${query ? `?${query}` : ''}`);
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        const sales = localStorage.getItem('business-default-sales');
-        return sales ? JSON.parse(sales) : [];
+        console.warn('🔄 Get sales offline - usando dados locais');
+        throw error;
       }
       throw error;
     }
@@ -288,7 +423,8 @@ class ApiService {
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        return null;
+        console.warn('🔄 Create sale offline - salvando localmente');
+        throw error;
       }
       throw error;
     }
@@ -299,39 +435,8 @@ class ApiService {
       return await this.request('/sales/stats');
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        // Calcular estatísticas básicas dos dados locais
-        const sales = localStorage.getItem('business-default-sales');
-        if (sales) {
-          const parsedSales = JSON.parse(sales);
-          const today = new Date().toISOString().split('T')[0];
-          const thisMonth = new Date().toISOString().substring(0, 7);
-          const thisYear = new Date().getFullYear();
-          
-          const dailyRevenue = parsedSales
-            .filter((s: any) => s.date?.startsWith(today))
-            .reduce((total: number, s: any) => total + (s.total || 0), 0);
-            
-          const monthlyRevenue = parsedSales
-            .filter((s: any) => s.date?.startsWith(thisMonth))
-            .reduce((total: number, s: any) => total + (s.total || 0), 0);
-            
-          const yearlyRevenue = parsedSales
-            .filter((s: any) => s.date?.startsWith(thisYear.toString()))
-            .reduce((total: number, s: any) => total + (s.total || 0), 0);
-          
-          return {
-            dailyRevenue,
-            monthlyRevenue,
-            yearlyRevenue,
-            paymentMethods: []
-          };
-        }
-        return {
-          dailyRevenue: 0,
-          monthlyRevenue: 0,
-          yearlyRevenue: 0,
-          paymentMethods: []
-        };
+        console.warn('🔄 Get sales stats offline - calculando localmente');
+        throw error;
       }
       throw error;
     }
@@ -346,18 +451,40 @@ class ApiService {
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     
     const query = queryParams.toString();
-    return this.request(`/stock/movements${query ? `?${query}` : ''}`);
+    
+    try {
+      return await this.request(`/stock/movements${query ? `?${query}` : ''}`);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        throw error;
+      }
+      throw error;
+    }
   }
 
   async addStockMovement(movement: any) {
-    return this.request('/stock/movements', {
-      method: 'POST',
-      body: JSON.stringify(movement),
-    });
+    try {
+      return await this.request('/stock/movements', {
+        method: 'POST',
+        body: JSON.stringify(movement),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        throw error;
+      }
+      throw error;
+    }
   }
 
   async getLowStockProducts() {
-    return this.request('/stock/low-stock');
+    try {
+      return await this.request('/stock/low-stock');
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        throw error;
+      }
+      throw error;
+    }
   }
 
   // Métodos de relatórios
@@ -368,7 +495,15 @@ class ApiService {
     if (params?.groupBy) queryParams.append('groupBy', params.groupBy);
     
     const query = queryParams.toString();
-    return this.request(`/reports/sales${query ? `?${query}` : ''}`);
+    
+    try {
+      return await this.request(`/reports/sales${query ? `?${query}` : ''}`);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        throw error;
+      }
+      throw error;
+    }
   }
 
   async getTopProducts(params?: { startDate?: string; endDate?: string; limit?: number }) {
@@ -378,15 +513,37 @@ class ApiService {
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     
     const query = queryParams.toString();
-    return this.request(`/reports/top-products${query ? `?${query}` : ''}`);
+    
+    try {
+      return await this.request(`/reports/top-products${query ? `?${query}` : ''}`);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        throw error;
+      }
+      throw error;
+    }
   }
 
   async getInventoryReport() {
-    return this.request('/reports/inventory');
+    try {
+      return await this.request('/reports/inventory');
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        throw error;
+      }
+      throw error;
+    }
   }
 
   async getDashboardStats() {
-    return this.request('/reports/dashboard');
+    try {
+      return await this.request('/reports/dashboard');
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        throw error;
+      }
+      throw error;
+    }
   }
 
   // Métodos de estabelecimento
@@ -395,7 +552,7 @@ class ApiService {
       return await this.request('/business/settings');
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        return null;
+        throw error;
       }
       throw error;
     }
@@ -409,7 +566,7 @@ class ApiService {
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        return { success: true };
+        throw error;
       }
       throw error;
     }
@@ -418,29 +575,59 @@ class ApiService {
   // Métodos de NFCe
   async getNFCes(limit?: number) {
     const query = limit ? `?limit=${limit}` : '';
-    return this.request(`/nfce${query}`);
+    
+    try {
+      return await this.request(`/nfce${query}`);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        throw error;
+      }
+      throw error;
+    }
   }
 
   async createNFCe(nfce: any) {
-    return this.request('/nfce', {
-      method: 'POST',
-      body: JSON.stringify(nfce),
-    });
+    try {
+      return await this.request('/nfce', {
+        method: 'POST',
+        body: JSON.stringify(nfce),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        throw error;
+      }
+      throw error;
+    }
   }
 
   async updateNFCeStatus(id: string, status: any) {
-    return this.request(`/nfce/${id}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify(status),
-    });
+    try {
+      return await this.request(`/nfce/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify(status),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
+        throw error;
+      }
+      throw error;
+    }
   }
 
-  // Health check
-  async healthCheck() {
+  // Verificar se está online
+  getConnectionStatus() {
+    return this.isOnline;
+  }
+
+  // Forçar verificação de conectividade
+  async checkConnectivity() {
     try {
-      return await this.request('/health');
+      const response = await this.healthCheck();
+      this.isOnline = response.status === 'OK';
+      return this.isOnline;
     } catch (error) {
-      return { status: 'offline', timestamp: new Date().toISOString() };
+      this.isOnline = false;
+      return false;
     }
   }
 }
