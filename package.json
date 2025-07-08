@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "npx vite",
     "dev:server": "cd server && npm run dev",
-    "dev:full": "concurrently \"npm run dev\" \"npm run dev:server\"",
+    "dev:full": "concurrently --kill-others \"npm run dev:server\" \"npm run dev\"",
     "build": "npx tsc --noEmit && npx vite build",
     "build:prod": "npx tsc --noEmit && npx vite build --mode production",
     "build:railway": "npx tsc --noEmit && npx vite build --mode production",
