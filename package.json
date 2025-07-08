@@ -9,7 +9,7 @@
     "dev:full": "concurrently \"npm run dev\" \"npm run dev:server\"",
     "build": "npx tsc --noEmit && npx vite build",
     "build:prod": "npx tsc --noEmit && npx vite build --mode production",
-    "start": "node server/server.js",
+    "start": "cd server && npm run init-db && cd .. && node server/server.js",
     "preview": "npx vite preview",
     "lint": "npx eslint .",
     "typecheck": "npx tsc --noEmit"

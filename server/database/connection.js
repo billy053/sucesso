@@ -6,13 +6,20 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Configurar caminho do banco para Railway
+const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'vitana.db');
+const dbDir = path.dirname(dbPath);
+
+console.log('💾 Configurando banco de dados...');
+console.log('📁 Diretório do banco:', dbDir);
+console.log('📄 Arquivo do banco:', dbPath);
+
 // Garantir que o diretório do banco existe
-const dbDir = path.dirname(process.env.DATABASE_PATH || './database/vitana.db');
 if (!fs.existsSync(dbDir)) {
+  console.log('📁 Criando diretório do banco:', dbDir);
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'vitana.db');
 
 // Configurar SQLite para modo verbose em desenvolvimento
 const sqlite = process.env.NODE_ENV === 'development' ? sqlite3.verbose() : sqlite3;

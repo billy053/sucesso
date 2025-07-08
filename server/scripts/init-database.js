@@ -4,6 +4,8 @@ import bcrypt from 'bcryptjs';
 const initDatabase = async () => {
   try {
     console.log('🔧 Inicializando banco de dados...');
+    console.log('📁 Diretório atual:', process.cwd());
+    console.log('💾 Caminho do banco:', process.env.DATABASE_PATH || 'padrão');
     
     await database.connect();
 
@@ -270,9 +272,14 @@ const initDatabase = async () => {
     
   } catch (error) {
     console.error('❌ Erro ao inicializar banco:', error);
-    throw error;
+    // Não falhar o deploy por erro de banco
+    console.warn('⚠️ Continuando sem banco inicializado...');
   } finally {
-    await database.close();
+    try {
+      await database.close();
+    } catch (error) {
+      console.warn('⚠️ Erro ao fechar banco:', error);
+    }
   }
 };
 

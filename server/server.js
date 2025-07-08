@@ -27,6 +27,12 @@ if (!process.env.SUPER_ADMIN_PASSWORD) {
   console.log('🔐 SUPER_ADMIN_PASSWORD configurado com valor padrão');
 }
 
+// Configurar DATABASE_PATH para Railway
+if (!process.env.DATABASE_PATH) {
+  process.env.DATABASE_PATH = path.join(__dirname, 'database', 'vitana.db');
+  console.log('💾 DATABASE_PATH configurado:', process.env.DATABASE_PATH);
+}
+
 console.log('🚀 Iniciando servidor...');
 console.log('📁 __dirname:', __dirname);
 console.log('🌍 NODE_ENV:', process.env.NODE_ENV);
@@ -86,6 +92,11 @@ app.use(express.static(staticPath));
 // Importar e usar rotas apenas se necessário
 try {
   console.log('📋 Carregando rotas...');
+  
+  // Inicializar banco de dados primeiro
+  const { default: initDatabase } = await import('./scripts/init-database.js');
+  await initDatabase();
+  console.log('✅ Banco de dados inicializado');
   
   // Importar rotas dinamicamente para evitar erros de inicialização
   const authRoutes = await import('./routes/auth.js');

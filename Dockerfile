@@ -27,6 +27,7 @@ WORKDIR /app
 # Copy built application and server
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server ./server
+COPY --from=builder /app/package.json ./package.json
 
 # Copy package files for production install
 COPY --from=builder /app/server/package*.json ./server/
@@ -35,7 +36,7 @@ COPY --from=builder /app/server/package*.json ./server/
 RUN cd server && npm ci --omit=dev
 
 # Create database directory with proper permissions
-RUN mkdir -p ./server/database && chmod 755 ./server/database
+RUN mkdir -p /app/data && chmod 755 /app/data
 
 # Create a non-root user
 RUN addgroup -g 1001 -S nodejs
@@ -51,8 +52,6 @@ EXPOSE 3001
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3001
+ENV DATABASE_PATH=/app/data/vitana.db
 ENV JWT_SECRET=vitana-jwt-secret-key-2024
 ENV SUPER_ADMIN_PASSWORD=SuperAdmin2024!
-
-# Simplified start command - just start the server
-CMD ["node", "server/server.js"]
