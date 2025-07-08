@@ -16,7 +16,7 @@ import {
   Monitor,
   Coffee,
   X
-} from 'react-feather';
+} from 'lucide-react';
 import { useProducts } from '../hooks/useProducts';
 import { useSales } from '../hooks/useSales';
 import { useStockMovements } from '../hooks/useStockMovements';
@@ -34,6 +34,6 @@ type PaymentMethod = 'dinheiro' | 'pix' | 'cartão' | 'débito';
 
 const STANDBY_TIMEOUT = 2 * 60 * 1000; // 2 minutos
 
-export function EnhancedPDV() {
+export function EnhancedPDV(): JSX.Element {
   // ... rest of the code remains unchanged ...
 }

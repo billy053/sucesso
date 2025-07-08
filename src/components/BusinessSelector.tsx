@@ -6,6 +6,8 @@ import {
   Package,
   X,
   Plus,
+  Building2,
+  Sparkles,
   Users,
   Shield,
   Clock

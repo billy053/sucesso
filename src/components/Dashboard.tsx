@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Package, 
   AlertTriangle, 
+  DollarSign,
   ShoppingCart,
   Calendar,
   Users,
