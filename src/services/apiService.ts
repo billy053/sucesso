@@ -117,9 +117,7 @@ class ApiService {
         body: JSON.stringify({ email }),
       });
     } catch (error) {
-      if (error instanceof Error && error.message === 'NETWORK_ERROR') {
-        throw error;
-      }
+      console.error('Erro ao verificar status do usuário:', error);
       throw error;
     }
   }

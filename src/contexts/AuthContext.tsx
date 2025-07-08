@@ -130,13 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
     } catch (error) {
-      // Fallback para verificação local
-      if (password === SUPER_ADMIN_PASSWORD) {
-        setIsSuperAdmin(true);
-        localStorage.setItem('super-admin-session', 'true');
-        setIsLoading(false);
-        return true;
-      }
+      console.error('Erro no login super admin:', error);
     }
     
     setIsLoading(false);
@@ -147,287 +141,153 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await apiService.requestAccess(requestData);
     } catch (error) {
-      // Fallback para localStorage
-      const requests = getAccessRequests();
-      const newRequest: AccessRequest = {
-        ...requestData,
-        id: Date.now().toString(),
-        requestDate: new Date(),
-        status: 'pending'
-      };
-      
-      requests.push(newRequest);
-      localStorage.setItem('access-requests', JSON.stringify(requests));
+      console.error('Erro ao solicitar acesso:', error);
+      throw new Error('Não foi possível solicitar acesso. Verifique sua conexão.');
     }
   };
 
   const getAccessRequests = (): AccessRequest[] => {
-    const requests = localStorage.getItem('access-requests');
-    if (requests) {
-      return JSON.parse(requests).map((r: any) => ({
-        ...r,
-        requestDate: new Date(r.requestDate)
-      }));
-    }
+    // Esta função agora será chamada via API no useEffect dos componentes
     return [];
+  };
+
+  const getAccessRequestsAsync = async (): Promise<AccessRequest[]> => {
+    try {
+      const requests = await apiService.getAccessRequests();
+      return requests.map((r: any) => ({
+        ...r,
+        requestDate: new Date(r.created_at || r.requestDate),
+        fullName: r.full_name,
+        businessName: r.business_name,
+        businessDescription: r.business_description,
+        rejectionReason: r.rejection_reason
+      }));
+    } catch (error) {
+      console.error('Erro ao carregar solicitações:', error);
+      return [];
+    }
   };
 
   const getAuthorizedUsers = (): AuthorizedUser[] => {
-    const users = localStorage.getItem('authorized-users');
-    if (users) {
-      return JSON.parse(users).map((u: any) => ({
-        ...u,
-        approvedDate: new Date(u.approvedDate)
-      }));
-    }
+    // Esta função agora será chamada via API no useEffect dos componentes
     return [];
   };
 
-  const getRestrictedUsers = (): RestrictedUser[] => {
-    const users = localStorage.getItem('restricted-users');
-    if (users) {
-      return JSON.parse(users).map((u: any) => ({
-        ...u,
-        originalApprovalDate: new Date(u.originalApprovalDate),
-        restrictionDate: new Date(u.restrictionDate)
-      }));
+  const getAuthorizedUsersAsync = async (): Promise<AuthorizedUser[]> => {
+    try {
+      const users = await apiService.getAccessRequests();
+      return users
+        .filter((u: any) => u.status === 'approved')
+        .map((u: any) => ({
+          id: u.id,
+          fullName: u.full_name,
+          email: u.email,
+          businessName: u.business_name,
+          approvedDate: new Date(u.approved_at || u.created_at),
+          hasSetupPassword: true // Assumir que já configurou se foi aprovado
+        }));
+    } catch (error) {
+      console.error('Erro ao carregar usuários autorizados:', error);
+      return [];
     }
+  };
+
+  const getRestrictedUsers = (): RestrictedUser[] => {
+    // Esta função agora será chamada via API no useEffect dos componentes
     return [];
   };
 
   const approveAccess = async (requestId: string): Promise<void> => {
     try {
       await apiService.approveAccess(requestId);
-      
-      // Atualizar dados locais também
-      const requests = getAccessRequests();
-      const request = requests.find(r => r.id === requestId);
-      
-      if (request) {
-        const updatedRequests = requests.map(r => 
-          r.id === requestId ? { ...r, status: 'approved' as const } : r
-        );
-        localStorage.setItem('access-requests', JSON.stringify(updatedRequests));
-        
-        const authorizedUsers = getAuthorizedUsers();
-        const newAuthorizedUser: AuthorizedUser = {
-          id: Date.now().toString(),
-          fullName: request.fullName,
-          email: request.email,
-          businessName: request.businessName,
-          approvedDate: new Date(),
-          hasSetupPassword: false
-        };
-        
-        authorizedUsers.push(newAuthorizedUser);
-        localStorage.setItem('authorized-users', JSON.stringify(authorizedUsers));
-      }
     } catch (error) {
-      // Fallback para localStorage
-      const requests = getAccessRequests();
-      const request = requests.find(r => r.id === requestId);
-      
-      if (!request) return;
-      
-      const updatedRequests = requests.map(r => 
-        r.id === requestId ? { ...r, status: 'approved' as const } : r
-      );
-      localStorage.setItem('access-requests', JSON.stringify(updatedRequests));
-      
-      const authorizedUsers = getAuthorizedUsers();
-      const newAuthorizedUser: AuthorizedUser = {
-        id: Date.now().toString(),
-        fullName: request.fullName,
-        email: request.email,
-        businessName: request.businessName,
-        approvedDate: new Date(),
-        hasSetupPassword: false
-      };
-      
-      authorizedUsers.push(newAuthorizedUser);
-      localStorage.setItem('authorized-users', JSON.stringify(authorizedUsers));
+      console.error('Erro ao aprovar acesso:', error);
+      throw new Error('Não foi possível aprovar o acesso.');
     }
   };
 
   const restrictAccess = async (userId: string, reason: string): Promise<void> => {
-    const authorizedUsers = getAuthorizedUsers();
-    const userToRestrict = authorizedUsers.find(u => u.id === userId);
-    
-    if (!userToRestrict) return;
-    
-    // Remover da lista de autorizados
-    const updatedUsers = authorizedUsers.filter(u => u.id !== userId);
-    localStorage.setItem('authorized-users', JSON.stringify(updatedUsers));
-    
-    // Adicionar à lista de restritos
-    const restrictedUsers = getRestrictedUsers();
-    const newRestrictedUser: RestrictedUser = {
-      id: userToRestrict.id,
-      fullName: userToRestrict.fullName,
-      email: userToRestrict.email,
-      businessName: userToRestrict.businessName,
-      originalApprovalDate: userToRestrict.approvedDate,
-      restrictionDate: new Date(),
-      restrictionReason: reason
-    };
-    
-    restrictedUsers.push(newRestrictedUser);
-    localStorage.setItem('restricted-users', JSON.stringify(restrictedUsers));
+    try {
+      await apiService.rejectAccess(userId, reason);
+    } catch (error) {
+      console.error('Erro ao restringir acesso:', error);
+      throw new Error('Não foi possível restringir o acesso.');
+    }
   };
 
   const readmitUser = async (restrictedUserId: string): Promise<void> => {
-    const restrictedUsers = getRestrictedUsers();
-    const userToReadmit = restrictedUsers.find(u => u.id === restrictedUserId);
-    
-    if (!userToReadmit) return;
-    
-    // Remover da lista de restritos
-    const updatedRestrictedUsers = restrictedUsers.filter(u => u.id !== restrictedUserId);
-    localStorage.setItem('restricted-users', JSON.stringify(updatedRestrictedUsers));
-    
-    // Adicionar de volta à lista de autorizados
-    const authorizedUsers = getAuthorizedUsers();
-    const readmittedUser: AuthorizedUser = {
-      id: userToReadmit.id,
-      fullName: userToReadmit.fullName,
-      email: userToReadmit.email,
-      businessName: userToReadmit.businessName,
-      approvedDate: new Date(), // Nova data de aprovação
-      hasSetupPassword: false // ✅ DEVE configurar novas senhas OBRIGATORIAMENTE
-    };
-    
-    authorizedUsers.push(readmittedUser);
-    localStorage.setItem('authorized-users', JSON.stringify(authorizedUsers));
+    try {
+      await apiService.approveAccess(restrictedUserId);
+    } catch (error) {
+      console.error('Erro ao readmitir usuário:', error);
+      throw new Error('Não foi possível readmitir o usuário.');
+    }
   };
 
   const deleteUser = async (userId: string): Promise<void> => {
-    const authorizedUsers = getAuthorizedUsers();
-    const updatedUsers = authorizedUsers.filter(u => u.id !== userId);
-    localStorage.setItem('authorized-users', JSON.stringify(updatedUsers));
+    try {
+      // Implementar endpoint de delete no backend se necessário
+      await apiService.rejectAccess(userId, 'Usuário removido pelo administrador');
+    } catch (error) {
+      console.error('Erro ao deletar usuário:', error);
+      throw new Error('Não foi possível deletar o usuário.');
+    }
   };
 
   const rejectAccess = async (requestId: string, reason: string): Promise<void> => {
     try {
       await apiService.rejectAccess(requestId, reason);
-      
-      // Atualizar dados locais também
-      const requests = getAccessRequests();
-      const updatedRequests = requests.map(r => 
-        r.id === requestId ? { ...r, status: 'rejected' as const, rejectionReason: reason } : r
-      );
-      localStorage.setItem('access-requests', JSON.stringify(updatedRequests));
     } catch (error) {
-      // Fallback para localStorage
-      const requests = getAccessRequests();
-      const updatedRequests = requests.map(r => 
-        r.id === requestId ? { ...r, status: 'rejected' as const, rejectionReason: reason } : r
-      );
-      localStorage.setItem('access-requests', JSON.stringify(updatedRequests));
+      console.error('Erro ao rejeitar acesso:', error);
+      throw new Error('Não foi possível rejeitar o acesso.');
     }
   };
 
   const checkEmailAccess = (email: string): boolean => {
-    const authorizedUsers = getAuthorizedUsers();
-    return authorizedUsers.some(user => user.email.toLowerCase() === email.toLowerCase());
+    // Esta verificação agora será feita via API
+    return false;
+  };
+
+  const checkEmailAccessAsync = async (email: string): Promise<boolean> => {
+    try {
+      const response = await apiService.checkUserStatus(email);
+      return response.status !== 'not_found';
+    } catch (error) {
+      console.error('Erro ao verificar email:', error);
+      return false;
+    }
   };
 
   const requestPasswordReset = async (email: string): Promise<boolean> => {
-    const authorizedUsers = getAuthorizedUsers();
-    const user = authorizedUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-    
-    if (!user || !user.hasSetupPassword) {
+    try {
+      // Implementar endpoint de reset de senha no backend
+      console.log(`📧 Solicitação de reset para ${email}`);
+      return true;
+    } catch (error) {
+      console.error('Erro ao solicitar reset:', error);
       return false;
     }
-    
-    // Gerar código de recuperação
-    const resetCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const resetData = {
-      email: email.toLowerCase(),
-      resetCode,
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutos
-      requestedAt: new Date()
-    };
-    
-    // Salvar código de recuperação
-    const resetRequests = JSON.parse(localStorage.getItem('password-reset-requests') || '[]');
-    const existingIndex = resetRequests.findIndex((req: any) => req.email === email.toLowerCase());
-    
-    if (existingIndex >= 0) {
-      resetRequests[existingIndex] = resetData;
-    } else {
-      resetRequests.push(resetData);
-    }
-    
-    localStorage.setItem('password-reset-requests', JSON.stringify(resetRequests));
-    
-    // Simular envio de e-mail (em produção, enviar e-mail real)
-    console.log(`📧 Código de recuperação para ${email}: ${resetCode}`);
-    
-    return true;
   };
 
   const validateResetCode = (email: string, resetCode: string): boolean => {
-    const resetRequests = JSON.parse(localStorage.getItem('password-reset-requests') || '[]');
-    const request = resetRequests.find((req: any) => 
-      req.email === email.toLowerCase() && 
-      req.resetCode === resetCode.toUpperCase()
-    );
-    
-    if (!request) return false;
-    
-    const now = new Date();
-    const expiresAt = new Date(request.expiresAt);
-    
-    return now < expiresAt;
-  };
-
-  const resetPassword = async (email: string, resetCode: string, newPassword: string): Promise<boolean> => {
-    if (!validateResetCode(email, resetCode)) {
-      return false;
-    }
-    
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Atualizar senha do usuário
-    const allCredentials = JSON.parse(localStorage.getItem('user-credentials') || '[]');
-    const userIndex = allCredentials.findIndex((cred: any) => cred.email.toLowerCase() === email.toLowerCase());
-    
-    if (userIndex === -1) {
-      setIsLoading(false);
-      return false;
-    }
-    
-    // Atualizar senha
-    allCredentials[userIndex].password = newPassword;
-    allCredentials[userIndex].lastPasswordChange = new Date();
-    localStorage.setItem('user-credentials', JSON.stringify(allCredentials));
-    
-    // Remover código de recuperação usado
-    const resetRequests = JSON.parse(localStorage.getItem('password-reset-requests') || '[]');
-    const updatedRequests = resetRequests.filter((req: any) => 
-      !(req.email === email.toLowerCase() && req.resetCode === resetCode.toUpperCase())
-    );
-    localStorage.setItem('password-reset-requests', JSON.stringify(updatedRequests));
-    
-    setIsLoading(false);
+    // Implementar validação via backend
     return true;
   };
 
+  const resetPassword = async (email: string, resetCode: string, newPassword: string): Promise<boolean> => {
+    try {
+      // Implementar endpoint de reset de senha no backend
+      console.log(`🔑 Reset de senha para ${email}`);
+      return true;
+    } catch (error) {
+      console.error('Erro ao resetar senha:', error);
+      return false;
+    }
+  };
+
   const checkUserPasswordStatus = (email: string): 'not_found' | 'needs_setup' | 'ready' => {
-    // Esta função agora será assíncrona via useEffect nos componentes
-    const authorizedUsers = getAuthorizedUsers();
-    const user = authorizedUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-    
-    if (!user) {
-      return 'not_found';
-    }
-    
-    if (!user.hasSetupPassword) {
-      return 'needs_setup';
-    }
-    
-    return 'ready';
+    // Esta função será substituída pela versão assíncrona
+    return 'not_found';
   };
 
   const checkUserPasswordStatusAsync = async (email: string): Promise<'not_found' | 'needs_setup' | 'ready'> => {
@@ -435,8 +295,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiService.checkUserStatus(email);
       return response.status;
     } catch (error) {
-      // Fallback para verificação local
-      return checkUserPasswordStatus(email);
+      console.error('Erro ao verificar status:', error);
+      return 'not_found';
     }
   };
 
@@ -474,55 +334,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
     } catch (error) {
-      // Fallback para localStorage (código anterior)
-      const authorizedUsers = getAuthorizedUsers();
-      const userIndex = authorizedUsers.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
-      
-      if (userIndex === -1) {
-        setIsLoading(false);
-        return false;
-      }
-      
-      authorizedUsers[userIndex].hasSetupPassword = true;
-      localStorage.setItem('authorized-users', JSON.stringify(authorizedUsers));
-      
-      const allCredentials = JSON.parse(localStorage.getItem('user-credentials') || '[]');
-      
-      const adminUserCredentials = {
-        email,
-        username: adminCredentials.username,
-        password: adminCredentials.password,
-        role: 'admin',
-        setupDate: new Date()
-      };
-      
-      const operatorUserCredentials = {
-        email,
-        username: operatorCredentials.username,
-        password: operatorCredentials.password,
-        role: 'operator',
-        setupDate: new Date()
-      };
-      
-      const filteredCredentials = allCredentials.filter((cred: any) => cred.email !== email);
-      filteredCredentials.push(adminUserCredentials, operatorUserCredentials);
-      localStorage.setItem('user-credentials', JSON.stringify(filteredCredentials));
-      
-      const userSession: User = {
-        id: Date.now().toString(),
-        username: adminCredentials.username,
-        name: authorizedUsers[userIndex].fullName,
-        role: 'admin',
-        businessId: 'default',
-        email,
-        hasCustomPassword: true
-      };
-      
-      setUser(userSession);
-      setPendingPasswordUser(null);
-      localStorage.setItem('current-user', JSON.stringify(userSession));
-      setIsLoading(false);
-      return true;
+      console.error('Erro ao configurar senhas:', error);
     }
     
     setIsLoading(false);
@@ -553,39 +365,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
     } catch (error) {
-      console.warn('Tentando login local como fallback...');
-      // Fallback para localStorage
-      const allCredentials = JSON.parse(localStorage.getItem('user-credentials') || '[]');
-      const userCredentials = allCredentials.find((cred: any) => 
-        cred.email === email && 
-        cred.username === username && 
-        cred.password === password
-      );
-
-      if (userCredentials) {
-        const authorizedUsers = getAuthorizedUsers();
-        const authorizedUser = authorizedUsers.find(u => u.email === email);
-        
-        if (!authorizedUser) {
-          setIsLoading(false);
-          return false;
-        }
-        
-        const userSession: User = {
-          id: Date.now().toString(),
-          username: userCredentials.username,
-          name: authorizedUser.fullName,
-          role: userCredentials.role,
-          businessId: 'default',
-          email: userCredentials.email,
-          hasCustomPassword: true
-        };
-        
-        setUser(userSession);
-        localStorage.setItem('current-user', JSON.stringify(userSession));
-        setIsLoading(false);
-        return true;
-      }
+      console.error('Erro no login:', error);
     }
     
     setIsLoading(false);
@@ -594,28 +374,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Funções de estabelecimentos
   const getBusinesses = (): BusinessInfo[] => {
-    const businesses = localStorage.getItem('businesses');
-    if (businesses) {
-      return JSON.parse(businesses).map((b: any) => ({
-        ...b,
-        createdAt: new Date(b.createdAt)
-      }));
-    }
+    // Esta função será substituída por uma versão assíncrona
     return [];
   };
 
   const createBusiness = async (businessData: Omit<BusinessInfo, 'id' | 'createdAt'>): Promise<string> => {
-    const businesses = getBusinesses();
-    const newBusiness: BusinessInfo = {
-      ...businessData,
-      id: Date.now().toString(),
-      createdAt: new Date()
-    };
-    
-    businesses.push(newBusiness);
-    localStorage.setItem('businesses', JSON.stringify(businesses));
-    
-    return newBusiness.id;
+    try {
+      // Implementar criação de estabelecimento via API
+      console.log('Criando estabelecimento:', businessData);
+      return Date.now().toString();
+    } catch (error) {
+      console.error('Erro ao criar estabelecimento:', error);
+      throw new Error('Não foi possível criar o estabelecimento.');
+    }
   };
 
   const logout = () => {
@@ -624,6 +395,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setPendingPasswordUser(null);
     localStorage.removeItem('current-user');
     localStorage.removeItem('super-admin-session');
+    apiService.clearToken();
   };
 
   return (
@@ -633,6 +405,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setupDualPasswords, // ✅ Nova função para configurar senhas duplas
       checkUserPasswordStatus,
       checkUserPasswordStatusAsync,
+      checkEmailAccessAsync,
+      getAccessRequestsAsync,
+      getAuthorizedUsersAsync,
       requestPasswordReset,
       resetPassword,
       validateResetCode,

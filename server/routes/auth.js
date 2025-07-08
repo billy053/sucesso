@@ -38,6 +38,8 @@ router.post('/request-access', async (req, res) => {
   try {
     const { fullName, email, businessName, businessDescription } = req.body;
 
+    console.log('📝 Nova solicitação de acesso:', { fullName, email, businessName });
+
     // Verificar se já existe solicitação
     const existing = await database.get(
       'SELECT id FROM users WHERE email = ?',
@@ -45,6 +47,7 @@ router.post('/request-access', async (req, res) => {
     );
 
     if (existing) {
+      console.log('⚠️ Solicitação já existe para:', email);
       return res.status(400).json({ error: 'Já existe uma solicitação para este email' });
     }
 
@@ -54,6 +57,7 @@ router.post('/request-access', async (req, res) => {
       VALUES (?, ?, ?, ?, ?, 'pending')
     `, [userId, email.toLowerCase(), fullName, businessName, businessDescription]);
 
+    console.log('✅ Solicitação criada com ID:', userId);
     res.json({ success: true, message: 'Solicitação enviada com sucesso' });
   } catch (error) {
     console.error('Erro ao solicitar acesso:', error);
@@ -66,6 +70,8 @@ router.post('/setup-passwords', async (req, res) => {
   try {
     const { email, adminCredentials, operatorCredentials } = req.body;
 
+    console.log('🔧 Configurando senhas duplas para:', email);
+
     // Verificar se usuário está aprovado
     const user = await database.get(
       'SELECT * FROM users WHERE email = ? AND status = ?',
@@ -73,6 +79,7 @@ router.post('/setup-passwords', async (req, res) => {
     );
 
     if (!user) {
+      console.log('❌ Usuário não encontrado ou não aprovado:', email);
       return res.status(404).json({ error: 'Usuário não encontrado ou não aprovado' });
     }
 
@@ -83,12 +90,15 @@ router.post('/setup-passwords', async (req, res) => {
     );
 
     if (existingCredentials) {
+      console.log('⚠️ Credenciais já existem para:', email);
       return res.status(400).json({ error: 'Credenciais já configuradas' });
     }
 
     // Hash das senhas
     const adminPasswordHash = await bcrypt.hash(adminCredentials.password, 12);
     const operatorPasswordHash = await bcrypt.hash(operatorCredentials.password, 12);
+
+    console.log('🔐 Criando credenciais admin e operador...');
 
     // Inserir credenciais
     await database.transaction([
@@ -104,6 +114,8 @@ router.post('/setup-passwords', async (req, res) => {
       }
     ]);
 
+    console.log('✅ Senhas duplas configuradas com sucesso para:', email);
+
     res.json({ success: true, message: 'Credenciais configuradas com sucesso' });
   } catch (error) {
     console.error('Erro ao configurar senhas:', error);
@@ -116,6 +128,8 @@ router.post('/login', async (req, res) => {
   try {
     const { email, username, password } = req.body;
 
+    console.log('🔐 Tentativa de login:', { email, username, role: 'detectando...' });
+
     // Buscar usuário e credenciais
     const userWithCredentials = await database.get(`
       SELECT u.*, uc.id as credential_id, uc.username, uc.password_hash, uc.role
@@ -125,12 +139,16 @@ router.post('/login', async (req, res) => {
     `, [email.toLowerCase(), username]);
 
     if (!userWithCredentials) {
+      console.log('❌ Credenciais não encontradas para:', email, username);
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
+
+    console.log('👤 Usuário encontrado:', userWithCredentials.full_name, 'Role:', userWithCredentials.role);
 
     // Verificar senha
     const passwordValid = await bcrypt.compare(password, userWithCredentials.password_hash);
     if (!passwordValid) {
+      console.log('❌ Senha inválida para:', email);
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 
@@ -151,6 +169,8 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
+
+    console.log('✅ Login realizado com sucesso:', userWithCredentials.full_name);
 
     res.json({
       success: true,
@@ -175,14 +195,19 @@ router.post('/check-status', async (req, res) => {
   try {
     const { email } = req.body;
 
+    console.log('🔍 Verificando status para email:', email);
+
     const user = await database.get(
       'SELECT status FROM users WHERE email = ?',
       [email.toLowerCase()]
     );
 
     if (!user) {
+      console.log('❌ Usuário não encontrado:', email);
       return res.json({ status: 'not_found' });
     }
+
+    console.log('✅ Status do usuário:', user.status);
 
     if (user.status === 'approved') {
       // Verificar se já tem credenciais
@@ -190,6 +215,8 @@ router.post('/check-status', async (req, res) => {
         'SELECT id FROM user_credentials WHERE user_id = (SELECT id FROM users WHERE email = ?)',
         [email.toLowerCase()]
       );
+
+      console.log('🔑 Tem credenciais:', !!hasCredentials);
 
       return res.json({ 
         status: hasCredentials ? 'ready' : 'needs_setup'
