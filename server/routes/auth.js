@@ -49,6 +49,11 @@ router.post('/request-access', async (req, res) => {
 
     console.log('📝 Nova solicitação válida:', { fullName, email, businessName });
 
+    // Conectar ao banco se necessário
+    if (!database.db) {
+      await database.connect();
+    }
+
     // Verificar se já existe solicitação
     const existing = await database.get(
       'SELECT id FROM users WHERE email = ?',
@@ -77,9 +82,15 @@ router.post('/request-access', async (req, res) => {
 // Configurar senhas duplas
 router.post('/setup-passwords', async (req, res) => {
   try {
+    console.log('🔧 Configurando senhas duplas...');
     const { email, adminCredentials, operatorCredentials } = req.body;
 
     console.log('🔧 Configurando senhas duplas para:', email);
+
+    // Conectar ao banco se necessário
+    if (!database.db) {
+      await database.connect();
+    }
 
     // Verificar se usuário está aprovado
     const user = await database.get(
@@ -128,7 +139,7 @@ router.post('/setup-passwords', async (req, res) => {
     res.json({ success: true, message: 'Credenciais configuradas com sucesso' });
   } catch (error) {
     console.error('Erro ao configurar senhas:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
   }
 });
 
@@ -138,6 +149,11 @@ router.post('/login', async (req, res) => {
     const { email, username, password } = req.body;
 
     console.log('🔐 Tentativa de login:', { email, username, role: 'detectando...' });
+
+    // Conectar ao banco se necessário
+    if (!database.db) {
+      await database.connect();
+    }
 
     // Buscar usuário e credenciais
     const userWithCredentials = await database.get(`
@@ -195,7 +211,7 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Erro no login:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
   }
 });
 
@@ -205,6 +221,11 @@ router.post('/check-status', async (req, res) => {
     const { email } = req.body;
 
     console.log('🔍 Verificando status para email:', email);
+
+    // Conectar ao banco se necessário
+    if (!database.db) {
+      await database.connect();
+    }
 
     const user = await database.get(
       'SELECT status FROM users WHERE email = ?',
@@ -235,7 +256,7 @@ router.post('/check-status', async (req, res) => {
     res.json({ status: user.status });
   } catch (error) {
     console.error('Erro ao verificar status:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
   }
 });
 
@@ -250,6 +271,11 @@ router.get('/verify', authenticateToken, (req, res) => {
 // Listar solicitações (Super Admin)
 router.get('/requests', async (req, res) => {
   try {
+    // Conectar ao banco se necessário
+    if (!database.db) {
+      await database.connect();
+    }
+
     const requests = await database.all(`
       SELECT id, email, full_name, business_name, business_description, 
              status, rejection_reason, created_at
@@ -260,7 +286,7 @@ router.get('/requests', async (req, res) => {
     res.json(requests);
   } catch (error) {
     console.error('Erro ao listar solicitações:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
   }
 });
 
@@ -268,6 +294,11 @@ router.get('/requests', async (req, res) => {
 router.post('/approve/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
+
+    // Conectar ao banco se necessário
+    if (!database.db) {
+      await database.connect();
+    }
 
     await database.run(`
       UPDATE users 
@@ -278,7 +309,7 @@ router.post('/approve/:userId', async (req, res) => {
     res.json({ success: true, message: 'Acesso aprovado' });
   } catch (error) {
     console.error('Erro ao aprovar acesso:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
   }
 });
 
@@ -287,6 +318,11 @@ router.post('/reject/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     const { reason } = req.body;
+
+    // Conectar ao banco se necessário
+    if (!database.db) {
+      await database.connect();
+    }
 
     await database.run(`
       UPDATE users 
@@ -297,7 +333,7 @@ router.post('/reject/:userId', async (req, res) => {
     res.json({ success: true, message: 'Acesso rejeitado' });
   } catch (error) {
     console.error('Erro ao rejeitar acesso:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
   }
 });
 

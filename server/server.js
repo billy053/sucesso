@@ -59,9 +59,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // CORS configurado
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'https://localhost:3000'],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Business-ID']
 }));
 
@@ -77,9 +77,43 @@ app.use((req, res, next) => {
 const staticPath = path.join(__dirname, '../dist');
 app.use(express.static(staticPath));
 
-// Importar e usar rotas
-let routesLoaded = false;
+// Inicializar banco de dados primeiro
+let dbInitialized = false;
 
+const initializeDatabase = async () => {
+  if (dbInitialized) return true;
+  
+  try {
+    console.log('🔧 Inicializando banco de dados...');
+    const { default: initDatabase } = await import('./scripts/init-database.js');
+    await initDatabase();
+    dbInitialized = true;
+    console.log('✅ Banco de dados inicializado');
+    return true;
+  } catch (error) {
+    console.error('❌ Erro ao inicializar banco:', error);
+    return false;
+  }
+};
+
+// Middleware para garantir que o banco está inicializado
+const ensureDatabase = async (req, res, next) => {
+  if (!dbInitialized) {
+    const success = await initializeDatabase();
+    if (!success) {
+      return res.status(500).json({ 
+        error: 'Banco de dados não disponível',
+        message: 'Tente novamente em alguns segundos'
+      });
+    }
+  }
+  next();
+};
+
+// Aplicar middleware de banco apenas nas rotas da API
+app.use('/api', ensureDatabase);
+
+// Carregar e usar rotas
 const loadRoutes = async () => {
   try {
     console.log('📋 Carregando rotas...');
@@ -102,15 +136,20 @@ const loadRoutes = async () => {
     app.use('/api/nfce', nfceRoutes.default);
     
     console.log('✅ Rotas carregadas com sucesso');
-    routesLoaded = true;
+    return true;
   } catch (error) {
     console.error('❌ Erro ao carregar rotas:', error);
-    // Continuar mesmo com erro nas rotas
+    return false;
   }
 };
 
 // Rota catch-all para SPA (deve vir por último)
 app.get('*', (req, res) => {
+  // Não servir index.html para rotas da API
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'Endpoint não encontrado' });
+  }
+  
   const indexPath = path.join(__dirname, '../dist/index.html');
   res.sendFile(indexPath, (err) => {
     if (err) {
@@ -142,20 +181,13 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🔌 API: http://localhost:${PORT}/api`);
   console.log(`📊 Health: http://localhost:${PORT}/health`);
   
-  // Carregar rotas após servidor estar rodando
+  // Inicializar banco de dados
+  await initializeDatabase();
+  
+  // Carregar rotas após banco inicializado
   await loadRoutes();
   
-  // Inicializar banco após rotas carregadas
-  setTimeout(async () => {
-    try {
-      console.log('🔧 Inicializando banco de dados...');
-      const { default: initDatabase } = await import('./scripts/init-database.js');
-      await initDatabase();
-      console.log('✅ Banco de dados inicializado');
-    } catch (error) {
-      console.warn('⚠️ Erro ao inicializar banco:', error.message);
-    }
-  }, 1000);
+  console.log('📋 Servidor pronto para receber requisições');
 });
 
 // Graceful shutdown
