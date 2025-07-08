@@ -124,7 +124,7 @@ export function useProducts() {
   }, [user]);
 
   const saveProducts = async (updatedProducts: Product[]) => {
-    if (!user) return;
+    if (!user?.businessId) return;
     
     setProducts(updatedProducts);
     
@@ -146,8 +146,10 @@ export function useProducts() {
         setProducts(updatedProducts);
         
         // Backup local
-        const storageKey = getStorageKey(user.businessId);
-        localStorage.setItem(storageKey, JSON.stringify(updatedProducts));
+        if (user?.businessId) {
+          const storageKey = getStorageKey(user.businessId);
+          localStorage.setItem(storageKey, JSON.stringify(updatedProducts));
+        }
         return;
       }
     } catch (error) {
@@ -181,8 +183,10 @@ export function useProducts() {
         setProducts(updatedProducts);
         
         // Backup local
-        const storageKey = getStorageKey(user.businessId);
-        localStorage.setItem(storageKey, JSON.stringify(updatedProducts));
+        if (user?.businessId) {
+          const storageKey = getStorageKey(user.businessId);
+          localStorage.setItem(storageKey, JSON.stringify(updatedProducts));
+        }
         return;
       }
     } catch (error) {
@@ -205,8 +209,10 @@ export function useProducts() {
       setProducts(updatedProducts);
       
       // Backup local
-      const storageKey = getStorageKey(user.businessId);
-      localStorage.setItem(storageKey, JSON.stringify(updatedProducts));
+      if (user?.businessId) {
+        const storageKey = getStorageKey(user.businessId);
+        localStorage.setItem(storageKey, JSON.stringify(updatedProducts));
+      }
     } catch (error) {
       console.error('Erro ao deletar produto no servidor:', error);
       // Fallback para deleção local

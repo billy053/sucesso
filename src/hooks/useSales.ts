@@ -45,7 +45,7 @@ export function useSales() {
   }, [user]);
 
   const saveSales = async (updatedSales: Sale[]) => {
-    if (!user) return;
+    if (!user?.businessId) return;
     
     setSales(updatedSales);
     
@@ -67,8 +67,10 @@ export function useSales() {
         setSales(updatedSales);
         
         // Backup local
-        const storageKey = getStorageKey(user.businessId);
-        localStorage.setItem(storageKey, JSON.stringify(updatedSales));
+        if (user?.businessId) {
+          const storageKey = getStorageKey(user.businessId);
+          localStorage.setItem(storageKey, JSON.stringify(updatedSales));
+        }
         return;
       }
     } catch (error) {
