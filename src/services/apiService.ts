@@ -80,6 +80,9 @@ class ApiService {
     businessName: string;
     businessDescription: string;
   }) {
+    console.log('🌐 Enviando para:', `${API_BASE_URL}/auth/request-access`);
+    console.log('📦 Dados:', data);
+    
     return this.request('/auth/request-access', {
       method: 'POST',
       body: JSON.stringify(data),

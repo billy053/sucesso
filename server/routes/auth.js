@@ -36,9 +36,18 @@ router.post('/super-admin', async (req, res) => {
 // Solicitar acesso
 router.post('/request-access', async (req, res) => {
   try {
+    console.log('📥 Recebendo solicitação de acesso...');
+    console.log('📦 Body:', req.body);
+    
     const { fullName, email, businessName, businessDescription } = req.body;
 
-    console.log('📝 Nova solicitação de acesso:', { fullName, email, businessName });
+    // Validar dados obrigatórios
+    if (!fullName || !email || !businessName) {
+      console.log('❌ Dados obrigatórios faltando');
+      return res.status(400).json({ error: 'Nome completo, email e nome do estabelecimento são obrigatórios' });
+    }
+
+    console.log('📝 Nova solicitação válida:', { fullName, email, businessName });
 
     // Verificar se já existe solicitação
     const existing = await database.get(
@@ -61,7 +70,7 @@ router.post('/request-access', async (req, res) => {
     res.json({ success: true, message: 'Solicitação enviada com sucesso' });
   } catch (error) {
     console.error('Erro ao solicitar acesso:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
   }
 });
 

@@ -142,9 +142,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const requestAccess = async (requestData: Omit<AccessRequest, 'id' | 'requestDate' | 'status'>): Promise<void> => {
     try {
+      console.log('📤 Enviando solicitação para API:', requestData);
       await apiService.requestAccess(requestData);
+      console.log('✅ Solicitação enviada com sucesso');
     } catch (error) {
       console.error('Erro ao solicitar acesso:', error);
+      
+      if (error instanceof Error) {
+        if (error.message === 'NETWORK_ERROR') {
+          // Fallback para salvamento local
+          console.log('🔄 Salvando solicitação localmente...');
+          const requests = JSON.parse(localStorage.getItem('access-requests') || '[]');
+          const newRequest = {
+            ...requestData,
+            id: Date.now().toString(),
+            requestDate: new Date().toISOString(),
+            status: 'pending'
+          };
+          requests.push(newRequest);
+          localStorage.setItem('access-requests', JSON.stringify(requests));
+          console.log('✅ Solicitação salva localmente');
+          return;
+        }
+        throw error;
+      }
+      
       throw new Error('Não foi possível solicitar acesso. Verifique sua conexão.');
     }
   };
