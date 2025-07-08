@@ -11,6 +11,22 @@ class ApiService {
     this.token = localStorage.getItem('auth-token');
     console.log('🔗 API Base URL:', API_BASE_URL);
     console.log('🌍 Environment:', import.meta.env.PROD ? 'Production' : 'Development');
+    
+    // Testar conexão inicial
+    this.testConnection();
+  }
+  
+  private async testConnection() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/health`);
+      if (response.ok) {
+        console.log('✅ Conexão com servidor estabelecida');
+      } else {
+        console.warn('⚠️ Servidor respondeu com erro:', response.status);
+      }
+    } catch (error) {
+      console.warn('⚠️ Não foi possível conectar ao servidor:', error);
+    }
   }
 
   setToken(token: string) {

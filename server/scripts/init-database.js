@@ -269,12 +269,15 @@ const initDatabase = async () => {
       
       // Inserir usuário demo para testes
       const demoUserId = 'demo-user-1';
+      
+      console.log('👤 Criando usuário demo...');
       await database.run(`
         INSERT OR IGNORE INTO users (id, email, full_name, business_name, business_description, status)
         VALUES (?, ?, ?, ?, ?, ?)
       `, [demoUserId, 'admin@vitana.com', 'Administrador Demo', 'Vitana Demo', 'Estabelecimento de demonstração', 'approved']);
       
       // Inserir credenciais demo
+      const bcrypt = await import('bcryptjs');
       await database.run(`
         INSERT OR IGNORE INTO user_credentials (id, user_id, username, password_hash, role)
         VALUES (?, ?, ?, ?, ?)
@@ -286,6 +289,9 @@ const initDatabase = async () => {
       `, ['cred-op-1', demoUserId, 'operador', await bcrypt.hash('operador123', 12), 'operator']);
       
       console.log('✅ Usuário demo criado');
+      console.log('📧 Email: admin@vitana.com');
+      console.log('👤 Admin: admin / admin123');
+      console.log('👨‍💼 Operador: operador / operador123');
     }
 
     console.log('🎉 Banco de dados inicializado com sucesso!');

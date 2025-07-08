@@ -100,7 +100,7 @@ class Database {
       this.db.run(sql, params, function(err) {
         if (err) {
           console.error('❌ Erro SQL:', err.message);
-          console.error('📝 Query:', sql);
+          console.error('📝 Query:', sql.substring(0, 100) + '...');
           console.error('📋 Params:', params);
           reject(err);
         } else {
@@ -115,7 +115,7 @@ class Database {
       this.db.get(sql, params, (err, row) => {
         if (err) {
           console.error('❌ Erro SQL:', err.message);
-          console.error('📝 Query:', sql);
+          console.error('📝 Query:', sql.substring(0, 100) + '...');
           console.error('📋 Params:', params);
           reject(err);
         } else {
@@ -130,7 +130,7 @@ class Database {
       this.db.all(sql, params, (err, rows) => {
         if (err) {
           console.error('❌ Erro SQL:', err.message);
-          console.error('📝 Query:', sql);
+          console.error('📝 Query:', sql.substring(0, 100) + '...');
           console.error('📋 Params:', params);
           reject(err);
         } else {

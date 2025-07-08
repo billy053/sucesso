@@ -518,9 +518,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     
     try {
+      console.log('🔐 Tentando login no servidor:', { email, username });
       const response = await apiService.login(email, username, password);
       
       if (response.success && response.user) {
+        console.log('✅ Login no servidor bem-sucedido:', response.user.name);
         const userSession: User = {
           id: response.user.id,
           username: response.user.username,
@@ -533,12 +535,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         setUser(userSession);
         localStorage.setItem('current-user', JSON.stringify(userSession));
+        console.log('💾 Sessão salva localmente');
         setIsLoading(false);
         return true;
       }
     } catch (error) {
-      console.error('Erro no login:', error);
+      console.error('❌ Erro no login do servidor:', error);
       // Fallback para localStorage
+      console.log('🔄 Tentando fallback local...');
       const allCredentials = JSON.parse(localStorage.getItem('user-credentials') || '[]');
       const userCredentials = allCredentials.find((cred: any) => 
         cred.email === email && 
@@ -547,10 +551,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
 
       if (userCredentials) {
+        console.log('✅ Credenciais encontradas no localStorage');
         const authorizedUsers = getAuthorizedUsers();
         const authorizedUser = authorizedUsers.find(u => u.email === email);
         
         if (!authorizedUser) {
+          console.log('❌ Usuário não autorizado');
           setIsLoading(false);
           return false;
         }
@@ -567,11 +573,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         setUser(userSession);
         localStorage.setItem('current-user', JSON.stringify(userSession));
+        console.log('✅ Login local bem-sucedido');
         setIsLoading(false);
         return true;
+      } else {
+        console.log('❌ Credenciais não encontradas');
       }
     }
     
+    console.log('❌ Login falhou');
     setIsLoading(false);
     return false;
   };

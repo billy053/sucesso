@@ -38,6 +38,7 @@ export function InitialLoginPage() {
   const [step, setStep] = useState<'initial' | 'access-check' | 'password-setup' | 'password-reset' | 'business-select' | 'login' | 'super-admin' | 'request-access'>('initial');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [userStatus, setUserStatus] = useState<'not_found' | 'needs_setup' | 'ready' | null>(null);
   
   // Estados para configuração de senhas DUPLAS
@@ -262,14 +263,29 @@ export function InitialLoginPage() {
       setError('Preencha todos os campos obrigatórios');
       return;
     }
+    setIsTestingConnection(true);
 
     try {
+      console.log('🔍 Verificando status do usuário:', email);
       await requestAccess(accessRequest);
       alert('✅ Solicitação enviada com sucesso!\n\nSua solicitação foi enviada para análise do administrador. Você receberá um e-mail quando for aprovada.');
       setStep('initial');
       setAccessRequest({ fullName: '', email: '', businessName: '', businessDescription: '' });
     } catch (error) {
       setError('Erro ao enviar solicitação. Tente novamente.');
+      // Tentar verificação local como fallback
+      const localStatus = checkUserPasswordStatus(email);
+      console.log('🔄 Status local:', localStatus);
+      setUserStatus(localStatus);
+      
+      if (localStatus === 'ready') {
+        setCurrentView('login');
+      } else if (localStatus === 'needs_setup') {
+        setCurrentView('setup');
+      } else {
+        setCurrentView('request');
+      }
+      setIsTestingConnection(false);
     }
   };
 
@@ -285,6 +301,7 @@ export function InitialLoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center relative overflow-hidden">
       {/* Efeitos de fundo */}
+      console.log('📋 Status retornado:', status);
       <div className="absolute inset-0 bg-gradient-to-br from-yellow-900/20 via-transparent to-yellow-900/20"></div>
       
       {/* Partículas animadas */}
@@ -308,6 +325,12 @@ export function InitialLoginPage() {
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-yellow-500/25">
             <Shield className="h-10 w-10 text-black" />
+            
+            {isTestingConnection && (
+              <div className="mt-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+                <p className="text-blue-400 text-sm">🔄 Testando conexão com servidor...</p>
+              </div>
+            )}
           </div>
           
           <h1 className="text-3xl font-bold text-white mb-2">Sistema de Gestão</h1>
@@ -923,6 +946,9 @@ export function InitialLoginPage() {
               >
                 Esqueci minha senha
               </button>
+              <p className="mt-2 text-xs">
+                💡 <strong>Teste:</strong> admin@vitana.com
+              </p>
             </div>
           )}
         </div>

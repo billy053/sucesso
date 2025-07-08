@@ -164,6 +164,19 @@ app.listen(PORT, '0.0.0.0', () => {
       const { default: initDatabase } = await import('./scripts/init-database.js');
       await initDatabase();
       console.log('✅ Banco de dados inicializado com sucesso');
+      
+      // Verificar se dados foram criados
+      const database = await import('./database/connection.js');
+      await database.default.connect();
+      
+      const userCount = await database.default.get('SELECT COUNT(*) as count FROM users');
+      const productCount = await database.default.get('SELECT COUNT(*) as count FROM products');
+      
+      console.log('📊 Estatísticas do banco:');
+      console.log(`   👥 Usuários: ${userCount.count}`);
+      console.log(`   📦 Produtos: ${productCount.count}`);
+      
+      await database.default.close();
     } catch (error) {
       console.warn('⚠️ Erro ao inicializar banco:', error.message);
       console.warn('💡 O banco será criado automaticamente quando necessário');
