@@ -18,6 +18,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
 import { NotificationContainer } from './components/NotificationContainer';
 import { NotificationCenter } from './components/NotificationCenter';
+import { DataSyncIndicator } from './components/DataSyncIndicator';
 import { useSettings } from './hooks/useSettings';
 import { InitialLoginPage } from './components/InitialLoginPage';
 import { SuperAdminDashboard } from './components/SuperAdminDashboard';
@@ -251,6 +252,8 @@ function AppContent() {
                 <X className="h-6 w-6" />
               </button>
             </div>
+            
+            <DataSyncIndicator />
             
             <nav className="mt-6 px-4 pb-20">
               {navItems.map((item) => (

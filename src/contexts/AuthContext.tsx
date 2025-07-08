@@ -162,23 +162,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const getAccessRequests = (): AccessRequest[] => {
-    try {
-      // Esta função será chamada de forma assíncrona nos componentes
-      const requests = localStorage.getItem('access-requests');
-      if (requests) {
-        return JSON.parse(requests).map((r: any) => ({
-          ...r,
-          requestDate: new Date(r.requestDate)
-        }));
-      }
-    } catch (error) {
-      const requests = localStorage.getItem('access-requests');
-      if (requests) {
-        return JSON.parse(requests).map((r: any) => ({
-          ...r,
-          requestDate: new Date(r.requestDate)
-        }));
-      }
+    const requests = localStorage.getItem('access-requests');
+    if (requests) {
+      return JSON.parse(requests).map((r: any) => ({
+        ...r,
+        requestDate: new Date(r.requestDate)
+      }));
     }
     return [];
   };
