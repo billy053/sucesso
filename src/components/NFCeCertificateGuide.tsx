@@ -12,7 +12,7 @@ import {
   Key,
   Lock,
   Globe,
-  Mail as MailIcon
+  Mail as MailIcon,
   Phone,
   Mail
 } from 'lucide-react';

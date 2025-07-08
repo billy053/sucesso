@@ -7,7 +7,7 @@ import {
   FileText,
   Settings,
   Save,
-  FileText as FileIcon
+  FileText as FileIcon,
   ExternalLink
 } from 'lucide-react';
 
